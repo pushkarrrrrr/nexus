@@ -35,9 +35,24 @@ Last Updated: 2026-09-18
   - `TopCommandBar.tsx` updated with dynamic user identity chip, profile shortcut, and quick sign-out button.
   - Next.js production build (`next build`) compiled 17/17 static routes successfully.
 - [x] **Automated Testing & Quality Gates**:
-  - 16/16 pytest tests passing (unit tests, integration tests, migration tests, security tests, and isolation tests).
+  - 22/22 pytest tests passing (including bcrypt 72-byte limit, invalid email regex, full_name sanitization, timezone length validation, migration portability, WebSocket disconnect, auth, token verification, and tenant isolation).
   - 100% clean typechecks across all packages with Mypy and TypeScript (`tsc --noEmit`).
   - 100% clean Python linting and formatting with Ruff.
+  - Production bundles verified: Next.js (`17/17` static pages) and Ambient shell (Vite).
+
+---
+
+## 2. Hardening & Bug Hunt Audit
+- **Bcrypt 72-byte Limit Guard**: `hash_password` and `/register` now reject passwords > 72 bytes with HTTP 400 Bad Request instead of throwing unhandled 500 `ValueError` from bcrypt 4.0+.
+- **Email Regex & Whitespace**: Reject invalid, empty, or whitespace-only emails with HTTP 400; normalize valid emails with lowercase and strip.
+- **Full Name Sanitization**: Whitespace-only names stored as `None`; bounded to 255 chars to match database column.
+- **Timezone Validation**: Validated length <= 64 chars to prevent DB truncation errors in PostgreSQL.
+- **In-Memory Model Defaults**: `UserPreferenceModel.__init__` guarantees defaults are never `None` in Python memory before DB flush.
+- **WebSocket Disconnect Guard**: `finally: manager.disconnect(websocket, surface)` prevents leaked sockets on unexpected transport exceptions.
+- **Worker Busy-Loop Fix**: `if self._shutdown_event.is_set(): break` avoids 100% CPU busy loop on worker shutdown.
+- **Migration Portability**: `tests/test_migrations.py` updated from hardcoded `.venv/bin/alembic` to `[sys.executable, "-m", "alembic", ...]`.
+- **Settings Reactivity**: Dashboard Settings page connected to `useAuth().updatePreferences()` to persist AI Gateway provider and policy auto-approve options directly to `/api/v1/auth/preferences`.
+- **Dashboard Network Error Resilience**: Helpful error alerts displayed when backend is unreachable instead of raw browser `Failed to fetch`.
 
 ---
 
