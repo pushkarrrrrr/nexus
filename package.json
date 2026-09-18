@@ -1,0 +1,23 @@
+{
+  "name": "nexus-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NEXUS Agentic AI Operating System Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "lint": "npm run --workspaces --if-present lint"
+  },
+  "keywords": [
+    "agentic-ai",
+    "operating-system",
+    "tauri",
+    "nextjs",
+    "fastapi"
+  ],
+  "author": "NEXUS Engineering Team",
+  "license": "UNLICENSED"
+}

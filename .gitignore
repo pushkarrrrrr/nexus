@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build Outputs
+dist/
+build/
+.next/
+out/
+target/
+
+# Environment & Secrets (NEVER COMMIT SECRETS)
+.env
+.env.local
+.env.*.local
+*.env
+*.pem
+*.key
+
+# IDE & OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# NEXUS Snapshots & Cache
+.nexus/
+.cache/
