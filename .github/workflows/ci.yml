@@ -1,0 +1,65 @@
+name: NEXUS CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-checks:
+    name: Backend Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-asyncio httpx alembic structlog ruff greenlet
+
+      - name: Run Ruff Linting
+        run: ruff check .
+
+      - name: Run Ruff Formatting Check
+        run: ruff format --check .
+
+      - name: Run Alembic Migrations
+        run: alembic -c infra/database/alembic.ini upgrade head
+
+      - name: Run Pytest Test Suite
+        run: PYTHONPATH=. pytest tests services/api/tests
+
+  frontend-checks:
+    name: Frontend Typecheck & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Typecheck Workspaces
+        run: npm run typecheck
+
+      - name: Build Dashboard
+        run: npm run --workspace=@nexus/dashboard build
+
+      - name: Build Ambient Overlay
+        run: npm run --workspace=@nexus/ambient build

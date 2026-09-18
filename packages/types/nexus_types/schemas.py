@@ -1,7 +1,8 @@
-from enum import Enum
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
 from datetime import datetime
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class ActionType(str, Enum):
@@ -50,16 +51,16 @@ class ToolManifest(BaseModel):
     description: str
     action_type: ActionType
     risk_level: RiskLevel
-    input_schema: Dict[str, Any] = Field(default_factory=dict)
-    output_schema: Dict[str, Any] = Field(default_factory=dict)
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    output_schema: dict[str, Any] = Field(default_factory=dict)
     reversibility: bool = False
     audit_required: bool = True
 
 
 class FileDiffPreview(BaseModel):
     file_path: str
-    original_content_hash: Optional[str] = None
-    new_content_hash: Optional[str] = None
+    original_content_hash: str | None = None
+    new_content_hash: str | None = None
     unified_diff: str
     lines_added: int = 0
     lines_removed: int = 0
@@ -74,37 +75,37 @@ class ApprovalRequest(BaseModel):
     action_type: ActionType
     risk_level: RiskLevel
     reason: str
-    command_args: Optional[Dict[str, Any]] = None
-    diff_preview: Optional[FileDiffPreview] = None
+    command_args: dict[str, Any] | None = None
+    diff_preview: FileDiffPreview | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
 
 class ApprovalResponse(BaseModel):
     approval_id: str
     decision: ApprovalDecisionType
     decided_at: datetime = Field(default_factory=datetime.utcnow)
-    feedback_notes: Optional[str] = None
+    feedback_notes: str | None = None
 
 
 class AuditEvent(BaseModel):
     event_id: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     session_id: str
-    step_id: Optional[str] = None
+    step_id: str | None = None
     agent_name: str
     tool_name: str
     action_type: ActionType
     risk_level: RiskLevel
-    inputs: Dict[str, Any] = Field(default_factory=dict)
-    outputs: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    outputs: dict[str, Any] | None = None
+    error: str | None = None
     policy_decision: str  # auto_approved, approved_by_user, denied_by_user, blocked_by_policy
-    approval_id: Optional[str] = None
-    snapshot_id: Optional[str] = None
+    approval_id: str | None = None
+    snapshot_id: str | None = None
     execution_duration_ms: float = 0.0
     undo_registered: bool = False
-    undone_at: Optional[datetime] = None
+    undone_at: datetime | None = None
 
 
 class SnapshotRecord(BaseModel):
@@ -112,10 +113,10 @@ class SnapshotRecord(BaseModel):
     action_id: str
     file_path: str
     sha256_before: str
-    sha256_after: Optional[str] = None
+    sha256_after: str | None = None
     snapshot_file_path: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    restored_at: Optional[datetime] = None
+    restored_at: datetime | None = None
 
 
 class MemoryItem(BaseModel):
@@ -123,10 +124,10 @@ class MemoryItem(BaseModel):
     memory_class: MemoryClass
     title: str
     content: str
-    source_turn_id: Optional[str] = None
+    source_turn_id: str | None = None
     confidence: float = 1.0
     enabled: bool = True
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -135,19 +136,19 @@ class DAGNode(BaseModel):
     id: str
     name: str
     agent: str
-    tool: Optional[str] = None
-    input: Optional[Dict[str, Any]] = None
-    dependencies: List[str] = Field(default_factory=list)
+    tool: str | None = None
+    input: dict[str, Any] | None = None
+    dependencies: list[str] = Field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
 
 
 class TaskDAG(BaseModel):
     dag_id: str
     session_id: str
     goal: str
-    nodes: List[DAGNode] = Field(default_factory=list)
+    nodes: list[DAGNode] = Field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None

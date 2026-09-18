@@ -1,32 +1,53 @@
 # NEXUS Project Status & Phase Log
 
-## Current Status: Phase 0 — Project Constitution & Monorepo Setup (IN PROGRESS)
+## Current Status: Phase 1 — Monorepo Foundation (COMPLETED)
 
 Last Updated: 2026-09-18
 
 ---
 
-## 1. Completed Work in Phase 0
-- [x] **Repository Audit**: Audited repository; established clean baseline with no legacy or unversioned code.
-- [x] **Monorepo Directory Hierarchy**: Initialized `apps/dashboard`, `apps/ambient`, `services/api`, `services/worker`, `packages/ui`, `packages/shared`, `packages/types`, `packages/config`, `infra/docker`, `infra/database`, `docs/`, `evals/`, and `scripts/`.
-- [x] **Root Configuration**: Established `.gitignore` protecting secrets, virtual environments, node modules, and snapshot directories.
-- [x] **Engineering Constitution (`AGENTS.md`)**: Enforced non-negotiable product principles, pipeline invariants, coding standards, and phase transition gates.
-- [x] **System Architecture (`docs/ARCHITECTURE.md`)**: Documented component boundaries, unbypassable 13-stage execution pipeline, trust enclaves, agent/tool/permission lifecycles, and dashboard/ambient multiplexing.
-- [x] **Product Specification (`docs/PRODUCT_SPEC.md`)**: Defined user personas, interaction flows, MVP vs Future scope partitioning, and non-functional requirements.
-- [x] **Security & Safety Model (`docs/SECURITY_MODEL.md`)**: Defined threat vectors, 4-tier risk matrix (LOW, MEDIUM, HIGH, CRITICAL), diff-based approval UX, pre-execution snapshotting, and sandboxed terminal constraints.
-- [x] **Engineering Roadmap (`docs/ROADMAP.md`)**: Established phased milestone deliverables (Phases 0 through 6) including academic evaluation criteria.
-- [x] **Shared Contracts & Schemas**: Defined domain types in TypeScript (`packages/types/src/index.ts`) and Python (`packages/types/nexus_types/schemas.py`).
-- [x] **Database Schema Specification**: Outlined initial entities for sessions, DAG tasks, audit logs, file snapshots, and memory stores.
+## 1. Completed Work in Phase 1
+- [x] **Monorepo Architecture Established**:
+  - `apps/dashboard`: Next.js 14+ (App Router, TypeScript, Tailwind CSS) dark cyberpunk command center. Production build verified (`next build`).
+  - `apps/ambient`: Tauri-ready React/Vite desktop HUD shell with floating Spotlight capsule (`Cmd+Shift+Space` summon toggle) and WebSocket integration. Production build verified.
+  - `services/api`: FastAPI async core engine with lifespan management, structured JSON logging, correlation ID tracing middleware, and resilience to DB outages.
+  - `services/worker`: Background worker daemon with heartbeat, task queue consumer scaffold, and graceful OS signal handling (`SIGINT`, `SIGTERM`).
+  - `packages/types`: Cross-boundary data contracts in TypeScript (`@nexus/types`) and Python Pydantic v2 schemas (`nexus_types`).
+  - `packages/config`: `nexus_config` with Pydantic `BaseSettings` and `.env` validation.
+  - `packages/shared`: `nexus_shared` with `structlog` logging, standardized error hierarchy, and SQLAlchemy declarative models (`SessionModel`, `TaskDAGModel`, `DAGNodeModel`, `AuditLogModel`, `FileSnapshotModel`, `MemoryModel`, `SessionGrantModel`).
+  - `packages/ui`: Shared design system tokens and theme constants (`@nexus/ui`).
+- [x] **Database & Migrations**:
+  - Configured async Alembic runner in `infra/database/` supporting both PostgreSQL (with `pgvector`) and local SQLite WAL mode fallback.
+  - Executed migration `001_initial_schema` creating all 7 core tables: `sessions`, `task_dags`, `dag_nodes`, `audit_logs`, `file_snapshots`, `memories`, `session_grants`.
+- [x] **Container & Infrastructure**:
+  - `infra/docker/docker-compose.yml` defining PostgreSQL 16 (`pgvector/pgvector:pg16`), Redis (`redis:7-alpine`), and API service container.
+  - `infra/docker/Dockerfile.api` and `infra/docker/Dockerfile.dashboard` multi-stage production container definitions.
+- [x] **Endpoints & Dual-Surface Communication**:
+  - `GET /health` verified responding with HTTP 200, status, version, environment, and database connectivity.
+  - `GET /api/v1/system/status` verified.
+  - `/ws/nexus` real-time WebSocket protocol verified with client surface tagging (`dashboard` / `ambient`).
+- [x] **Developer Scripts & Tooling**:
+  - `scripts/dev.sh`: Orchestrates API, Dashboard, and Ambient Shell concurrently.
+  - `scripts/migrate.sh`: Executes database migrations.
+  - `scripts/test.sh`: Runs full Python and TypeScript test suites.
+  - `scripts/lint.sh`: Runs Ruff check, Ruff format check, and TypeScript typecheck.
+  - `.github/workflows/ci.yml`: GitHub Actions CI pipeline.
+- [x] **Automated Checks**:
+  - 5/5 Pytest unit and migration tests passing.
+  - Ruff linting and format checks passing with 0 errors.
+  - TypeScript strict typecheck passing across all workspaces (`@nexus/dashboard`, `@nexus/ambient`, `@nexus/types`, `@nexus/ui`).
 
 ---
 
 ## 2. Known Limitations & Current State
-- No production feature code or tool runners exist yet by architectural design (Phase 0 strictly defines the constitution and boundaries to prevent drift).
-- Docker and Cargo (Rust) are currently not installed in the local terminal PATH; Phase 1 will focus on the core Python engine, local SQLite database, and TypeScript contracts, which run natively on macOS.
+- AI Agent reasoning, planning loops, and autonomous tool runners are deliberately omitted in Phase 1 to preserve the foundation boundary.
+- Terminal and Computer control adapters will be implemented under the Policy Engine in Phase 2.
 
 ---
 
-## 3. Prerequisites for Phase 1 (Policy Engine, Audit Subsystem & Security Kernel)
-1. Initialize Python virtual environment with FastAPI, Pydantic v2, SQLAlchemy async, and pytest.
-2. Initialize root `package.json` for managing TypeScript types and workspaces.
-3. User approval of the Phase 0 Architecture Artifact and milestone sign-off.
+## 3. Prerequisites for Phase 2 (Policy Engine, Audit Subsystem & Security Kernel)
+1. Implement `PolicyEngine` (action classification, risk scoring, session grant cache).
+2. Implement `SnapshotEngine` (pre-execution file backup, SHA-256 hash checks, diff generator).
+3. Implement `AuditLedger` and rollback executor.
+4. Implement initial sandboxed tools (`filesystem.*` and guarded `terminal.execute`).
+5. User approval of Phase 1 deliverables and milestone sign-off.
