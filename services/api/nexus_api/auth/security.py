@@ -14,16 +14,22 @@ from packages.config.nexus_config import get_settings
 
 def hash_password(plain_password: str) -> str:
     """Hash a plaintext password using bcrypt with a generated salt."""
+    pw_bytes = plain_password.encode("utf-8")
+    if len(pw_bytes) > 72:
+        raise ValueError("Password cannot be longer than 72 bytes")
     salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(plain_password.encode("utf-8"), salt)
+    hashed = bcrypt.hashpw(pw_bytes, salt)
     return hashed.decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against a stored bcrypt hash."""
     try:
+        pw_bytes = plain_password.encode("utf-8")
+        if len(pw_bytes) > 72:
+            return False
         return bcrypt.checkpw(
-            plain_password.encode("utf-8"),
+            pw_bytes,
             hashed_password.encode("utf-8"),
         )
     except (ValueError, TypeError):

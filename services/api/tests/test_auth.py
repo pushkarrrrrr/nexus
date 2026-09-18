@@ -289,3 +289,80 @@ async def test_tenant_data_isolation():
                 assert log.user_id == user_b_id
                 assert log.user_id != user_a_id
             break
+
+
+@pytest.mark.asyncio
+async def test_user_registration_password_too_long():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {"email": random_email(), "password": "a" * 73}
+        res = await client.post("/api/v1/auth/register", json=payload)
+        assert res.status_code == 400
+        assert "cannot exceed 72 bytes" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_user_registration_invalid_email_format():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        for invalid_email in ["", "   ", "not-an-email", "test@", "@domain.com"]:
+            payload = {"email": invalid_email, "password": "password123"}
+            res = await client.post("/api/v1/auth/register", json=payload)
+            assert res.status_code == 400, f"Failed to reject invalid email: {invalid_email}"
+            assert "Valid email" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_user_registration_whitespace_handling():
+    transport = ASGITransport(app=app)
+    raw_email = "  NEXUS_OPERATOR_TEST@EXAMPLE.COM   "
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {
+            "email": raw_email,
+            "password": "validPassword123",
+            "full_name": "    ",
+        }
+        res = await client.post("/api/v1/auth/register", json=payload)
+        assert res.status_code == 201
+        data = res.json()
+        assert data["user"]["email"] == "nexus_operator_test@example.com"
+        assert data["user"]["full_name"] is None
+
+
+@pytest.mark.asyncio
+async def test_password_verify_over_72_bytes():
+    hashed = hash_password("validPassword123")
+    assert verify_password("a" * 100, hashed) is False
+
+
+@pytest.mark.asyncio
+async def test_timezone_length_validation():
+    transport = ASGITransport(app=app)
+    email = random_email()
+    password = "validPassword123"
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        reg_res = await client.post(
+            "/api/v1/auth/register", json={"email": email, "password": password}
+        )
+        token = reg_res.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Timezone too long
+        patch_res = await client.patch(
+            "/api/v1/auth/preferences",
+            json={"timezone": "x" * 65},
+            headers=headers,
+        )
+        assert patch_res.status_code == 400
+        assert "between 1 and 64 characters" in patch_res.json()["detail"]
+
+
+def test_user_preferences_model_memory_defaults():
+    from packages.shared.nexus_shared.models import UserPreferenceModel
+
+    prefs = UserPreferenceModel(user_id="usr_test_default")
+    assert prefs.timezone == "UTC"
+    assert prefs.model_preferences["default_provider"] == "openai"
+    assert prefs.permission_preferences["auto_grant_low_risk"] is True
+    assert prefs.privacy_settings["store_audit_payloads"] is True

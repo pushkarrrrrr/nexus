@@ -93,4 +93,8 @@ async def nexus_websocket(
                     )
                 )
     except WebSocketDisconnect:
+        pass
+    except Exception as e:  # noqa: BLE001
+        logger.warning("websocket_exception_encountered", error=str(e), surface=client_surface)
+    finally:
         manager.disconnect(websocket, client_surface)

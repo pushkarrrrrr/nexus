@@ -104,6 +104,36 @@ class UserPreferenceModel(Base):
 
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="preferences")
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("pref")
+        if getattr(self, "timezone", None) is None:
+            self.timezone = "UTC"
+        if getattr(self, "model_preferences", None) is None:
+            self.model_preferences = {
+                "default_provider": "openai",
+                "fast_model": "gpt-4o-mini",
+                "reasoning_model": "gpt-4o",
+                "temperature": 0.2,
+            }
+        if getattr(self, "permission_preferences", None) is None:
+            self.permission_preferences = {
+                "auto_grant_low_risk": True,
+                "require_hitl_high_risk": True,
+                "session_grant_ttl_minutes": 60,
+            }
+        if getattr(self, "privacy_settings", None) is None:
+            self.privacy_settings = {
+                "store_audit_payloads": True,
+                "telemetry_enabled": False,
+                "allow_external_rag": False,
+            }
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+        if getattr(self, "updated_at", None) is None:
+            self.updated_at = utcnow()
+
 
 class SessionModel(Base):
     __tablename__ = "sessions"

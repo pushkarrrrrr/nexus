@@ -68,11 +68,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+      } catch {
+        throw new Error(
+          `Unable to reach NEXUS Core API at ${API_BASE}. Please verify the API service is online.`
+        );
+      }
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ detail: "Login failed" }));
@@ -91,15 +98,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, fullName?: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password,
-          full_name: fullName || null,
-        }),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            password,
+            full_name: fullName || null,
+          }),
+        });
+      } catch {
+        throw new Error(
+          `Unable to reach NEXUS Core API at ${API_BASE}. Please verify the API service is online.`
+        );
+      }
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ detail: "Registration failed" }));
@@ -142,14 +156,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     if (!token) throw new Error("Authentication required");
 
-    const res = await fetch(`${API_BASE}/api/v1/auth/preferences`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(updates),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/api/v1/auth/preferences`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+    } catch {
+      throw new Error(
+        `Unable to reach NEXUS Core API at ${API_BASE}. Preferences could not be updated.`
+      );
+    }
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ detail: "Preferences update failed" }));

@@ -1,14 +1,17 @@
 import os
 import subprocess
+import sys
 
 
 def test_alembic_migrations_lifecycle():
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
 
+    alembic_cmd = [sys.executable, "-m", "alembic", "-c", "infra/database/alembic.ini"]
+
     # 1. Upgrade to head
     up_result = subprocess.run(
-        [".venv/bin/alembic", "-c", "infra/database/alembic.ini", "upgrade", "head"],
+        alembic_cmd + ["upgrade", "head"],
         capture_output=True,
         text=True,
         env=env,
@@ -19,7 +22,7 @@ def test_alembic_migrations_lifecycle():
 
     # 2. Downgrade to base
     down_result = subprocess.run(
-        [".venv/bin/alembic", "-c", "infra/database/alembic.ini", "downgrade", "base"],
+        alembic_cmd + ["downgrade", "base"],
         capture_output=True,
         text=True,
         env=env,
@@ -29,7 +32,7 @@ def test_alembic_migrations_lifecycle():
 
     # 3. Re-upgrade to head
     re_up_result = subprocess.run(
-        [".venv/bin/alembic", "-c", "infra/database/alembic.ini", "upgrade", "head"],
+        alembic_cmd + ["upgrade", "head"],
         capture_output=True,
         text=True,
         env=env,

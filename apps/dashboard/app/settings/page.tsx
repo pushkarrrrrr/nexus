@@ -1,20 +1,59 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "../../src/components/ui/Card";
-import { StatusBadge } from "../../src/components/ui/StatusBadge";
-import { Settings, Key, Shield, Database, Save, CheckCircle2 } from "lucide-react";
+import { Settings, Key, Shield, Database, Save, CheckCircle2, User, Globe } from "lucide-react";
+import { useAuth } from "../../src/context/AuthContext";
 
 export default function SettingsPage() {
+  const { user, isAuthenticated, updatePreferences } = useAuth();
+
   const [defaultProvider, setDefaultProvider] = useState("openai");
   const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434");
   const [autoApproveLow, setAutoApproveLow] = useState(true);
+  const [timezone, setTimezone] = useState("UTC");
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user?.preferences) {
+      if (user.preferences.model_preferences?.default_provider) {
+        setDefaultProvider(user.preferences.model_preferences.default_provider);
+      }
+      if (user.preferences.permission_preferences?.auto_grant_low_risk !== undefined) {
+        setAutoApproveLow(user.preferences.permission_preferences.auto_grant_low_risk);
+      }
+      if (user.preferences.timezone) {
+        setTimezone(user.preferences.timezone);
+      }
+    }
+  }, [user]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 4000);
+    setError(null);
+    setIsSaving(true);
+
+    try {
+      if (isAuthenticated) {
+        await updatePreferences({
+          timezone,
+          model_preferences: { default_provider: defaultProvider },
+          permission_preferences: { auto_grant_low_risk: autoApproveLow },
+        });
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 4000);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to save preferences.");
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -32,11 +71,67 @@ export default function SettingsPage() {
       {saved && (
         <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono flex items-center gap-2">
           <CheckCircle2 size={16} className="shrink-0" />
-          <span>System configuration successfully updated in memory.</span>
+          <span>User preferences & system configuration successfully persisted.</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-center gap-2">
+          <span>{error}</span>
         </div>
       )}
 
       <form onSubmit={handleSave} className="space-y-6">
+        {/* Operator Identity Card */}
+        {isAuthenticated && user && (
+          <Card
+            title={
+              <div className="flex items-center gap-2">
+                <User size={16} className="text-cyan-400" />
+                <span>Operator Identity & Context</span>
+              </div>
+            }
+            subtitle="Authenticated account attributes and locale configuration"
+          >
+            <div className="space-y-4 font-mono text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-400 mb-1">Operator Call-Sign</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={user.full_name || "Unspecified"}
+                    className="w-full p-2.5 rounded-lg bg-slate-950 border border-white/10 text-slate-400 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">Email Address</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={user.email}
+                    className="w-full p-2.5 rounded-lg bg-slate-950 border border-white/10 text-slate-400 cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1 flex items-center gap-1.5">
+                  <Globe size={13} className="text-cyan-400" />
+                  <span>Timezone</span>
+                </label>
+                <input
+                  type="text"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  placeholder="e.g. UTC, America/New_York, Asia/Kolkata"
+                  className="w-full p-2.5 rounded-lg bg-slate-900 border border-white/10 text-white outline-none focus:border-cyan-500"
+                />
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Multi-Model AI Gateway Card */}
         <Card
           title={

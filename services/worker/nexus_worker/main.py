@@ -36,6 +36,9 @@ class NexusWorker:
                     await asyncio.wait_for(self._shutdown_event.wait(), timeout=10.0)
                 except TimeoutError:
                     pass
+
+                if self._shutdown_event.is_set():
+                    break
         except asyncio.CancelledError:
             logger.info("worker_task_cancelled")
         finally:

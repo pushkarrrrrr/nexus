@@ -2,6 +2,7 @@
 NEXUS Authentication & User Context API Endpoints
 """
 
+import re
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -38,6 +39,8 @@ from services.api.nexus_api.database import get_db
 
 logger = get_logger("nexus.auth")
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
+
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
 
 def _format_user_profile(user: UserModel) -> UserProfile:
@@ -99,10 +102,29 @@ async def register_user(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     email = req.email.strip().lower()
+    if not email or not EMAIL_REGEX.match(email) or len(email) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Valid email address is required (max 255 characters)",
+        )
+
+    pw_bytes = req.password.encode("utf-8")
     if len(req.password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters long",
+        )
+    if len(pw_bytes) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password cannot exceed 72 bytes due to cryptographic hashing constraints",
+        )
+
+    full_name_clean = req.full_name.strip() if req.full_name and req.full_name.strip() else None
+    if full_name_clean and len(full_name_clean) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Full name cannot exceed 255 characters",
         )
 
     # Check for existing email
@@ -118,7 +140,7 @@ async def register_user(
     new_user = UserModel(
         email=email,
         hashed_password=hashed_pw,
-        full_name=req.full_name.strip() if req.full_name else None,
+        full_name=full_name_clean,
     )
     db.add(new_user)
     await db.flush()
@@ -279,7 +301,13 @@ async def update_user_preferences(
         db.add(prefs)
 
     if req.timezone is not None:
-        prefs.timezone = req.timezone
+        tz_clean = req.timezone.strip()
+        if not tz_clean or len(tz_clean) > 64:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Timezone must be between 1 and 64 characters",
+            )
+        prefs.timezone = tz_clean
 
     if req.model_preferences is not None:
         current_model = dict(prefs.model_preferences or {})
