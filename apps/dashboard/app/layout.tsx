@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AppShell } from "../src/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  title: "NEXUS Operating System — Dashboard",
+  title: "NEXUS Operating System — Console",
   description: "Unified Command Center for NEXUS Agentic AI Operating System",
 };
 
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen bg-[#06090e] bg-grid-pattern text-slate-100 antialiased selection:bg-cyan-500 selection:text-black">
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

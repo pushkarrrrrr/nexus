@@ -1,53 +1,51 @@
 # NEXUS Project Status & Phase Log
 
-## Current Status: Phase 1 — Monorepo Foundation (COMPLETED)
+## Current Status: Phase 2 — NEXUS Design System + Dashboard (COMPLETED)
 
 Last Updated: 2026-09-18
 
 ---
 
-## 1. Completed Work in Phase 1
-- [x] **Monorepo Architecture Established**:
-  - `apps/dashboard`: Next.js 14+ (App Router, TypeScript, Tailwind CSS) dark cyberpunk command center. Production build verified (`next build`).
-  - `apps/ambient`: Tauri-ready React/Vite desktop HUD shell with floating Spotlight capsule (`Cmd+Shift+Space` summon toggle) and WebSocket integration. Production build verified.
-  - `services/api`: FastAPI async core engine with lifespan management, structured JSON logging, correlation ID tracing middleware, and resilience to DB outages.
-  - `services/worker`: Background worker daemon with heartbeat, task queue consumer scaffold, and graceful OS signal handling (`SIGINT`, `SIGTERM`).
-  - `packages/types`: Cross-boundary data contracts in TypeScript (`@nexus/types`) and Python Pydantic v2 schemas (`nexus_types`).
-  - `packages/config`: `nexus_config` with Pydantic `BaseSettings` and `.env` validation.
-  - `packages/shared`: `nexus_shared` with `structlog` logging, standardized error hierarchy, and SQLAlchemy declarative models (`SessionModel`, `TaskDAGModel`, `DAGNodeModel`, `AuditLogModel`, `FileSnapshotModel`, `MemoryModel`, `SessionGrantModel`).
-  - `packages/ui`: Shared design system tokens and theme constants (`@nexus/ui`).
-- [x] **Database & Migrations**:
-  - Configured async Alembic runner in `infra/database/` supporting both PostgreSQL (with `pgvector`) and local SQLite WAL mode fallback.
-  - Executed migration `001_initial_schema` creating all 7 core tables: `sessions`, `task_dags`, `dag_nodes`, `audit_logs`, `file_snapshots`, `memories`, `session_grants`.
-- [x] **Container & Infrastructure**:
-  - `infra/docker/docker-compose.yml` defining PostgreSQL 16 (`pgvector/pgvector:pg16`), Redis (`redis:7-alpine`), and API service container.
-  - `infra/docker/Dockerfile.api` and `infra/docker/Dockerfile.dashboard` multi-stage production container definitions.
-- [x] **Endpoints & Dual-Surface Communication**:
-  - `GET /health` verified responding with HTTP 200, status, version, environment, and database connectivity.
-  - `GET /api/v1/system/status` verified.
-  - `/ws/nexus` real-time WebSocket protocol verified with client surface tagging (`dashboard` / `ambient`).
-- [x] **Developer Scripts & Tooling**:
-  - `scripts/dev.sh`: Orchestrates API, Dashboard, and Ambient Shell concurrently.
-  - `scripts/migrate.sh`: Executes database migrations.
-  - `scripts/test.sh`: Runs full Python and TypeScript test suites.
-  - `scripts/lint.sh`: Runs Ruff check, Ruff format check, and TypeScript typecheck.
-  - `.github/workflows/ci.yml`: GitHub Actions CI pipeline.
-- [x] **Automated Checks**:
-  - 5/5 Pytest unit and migration tests passing.
-  - Ruff linting and format checks passing with 0 errors.
-  - TypeScript strict typecheck passing across all workspaces (`@nexus/dashboard`, `@nexus/ambient`, `@nexus/types`, `@nexus/ui`).
+## 1. Completed Work in Phase 2
+- [x] **Production-Quality Operating Console Design System**:
+  - Implemented calm, technical, intelligent, premium aesthetic: dark void (`#06090e`), cyber grid background, glassmorphism panels (`rgba(13, 19, 33, 0.72)` with blur), subtle borders, electric cyan and sky blue accents, JetBrains Mono telemetry fonts.
+  - Reusable component suite: `StatusBadge`, `Card`, `MetricCard`, `DiffViewer`, `ApprovalModal`, `TaskTimeline`, `DataTable`, `ActivityFeed`, `EmptyState`, and `LoadingState`.
+- [x] **Responsive Operating Shell Architecture**:
+  - `Sidebar.tsx`: Collapsible navigation with grouped categories (`Core Console`, `Intelligence`, `Governance & Safety`, `System`), pending approval counter badges, and host OS status.
+  - `TopCommandBar.tsx`: Global search & command input capsule (`Cmd+K`), live Core API health indicator (`ONLINE` / `DEGRADED`), and navigation breadcrumbs.
+  - `CommandModal.tsx`: Global `Cmd+K` keyboard shortcut palette allowing instant jump to any subsystem.
+  - `AppShell.tsx`: Responsive layout wrapper connecting all surfaces.
+- [x] **12 Subsystem Pages Implemented & Verified**:
+  - **`/` (Dashboard Home)**: Real-time operating console, active DAG timeline summary, telemetry metric cards, quick action dispatch capsule, and live event feed.
+  - **`/sessions` (AI Sessions)**: Multi-turn thread manager, surface filter (`dashboard` / `ambient`), and captured host OS context inspector (active window, cwd, app).
+  - **`/tasks` (Tasks)**: Topological DAG graph and interactive step inspector showing inputs, outputs, agent assignment, and duration.
+  - **`/goals` (Goals)**: Autonomous goal tracker with milestone progress meters and category tags.
+  - **`/memory` (Memory)**: 5-Class Memory taxonomy explorer (Working, Conversational, Episodic, Semantic, Procedural) with provenance tracing, confidence sliders, and delete/toggle controls.
+  - **`/knowledge` (Knowledge)**: Personal knowledge base (RAG), vector similarity search sandbox, and indexed chunk inspector.
+  - **`/approvals` (Approvals)**: Dedicated Human-in-the-Loop diff approval console with unified diff viewer, risk badges (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), and granular action buttons (`[Approve Once]`, `[Approve for Session]`, `[Always Allow Read]`, `[Deny]`).
+  - **`/agents` (Agents)**: 6 specialized agent profiles (`OrchestratorAgent`, `PlanningAgent`, `CodingAgent`, `SystemOperatorAgent`, `ResearchAgent`, `DocumentAgent`, `ComputerAgent`) with system directives and capability lists.
+  - **`/tools` (Tools)**: Standardized tool capability registry (`filesystem.*`, `terminal.*`, `browser.*`, `github.*`) with JSON schemas and reversibility indicators.
+  - **`/audit` (Audit Logs)**: Immutable security ledger data table with time, agent, tool, policy decision, pre-execution snapshot link, and 1-click `[Rollback / Undo]` trigger.
+  - **`/analytics` (Analytics)**: Capstone research benchmark evaluation metrics and formal 4-way ablation matrix (Baseline vs RAG vs Memory+RAG vs Agentic NEXUS).
+  - **`/settings` (Settings)**: Multi-model AI Gateway provider configuration (OpenAI, Anthropic, Gemini, Ollama) and permission rules.
+- [x] **Automated Checks & Build Verification**:
+  - All 12 routes verified responding with `HTTP 200`.
+  - Next.js production build (`next build`) compiled 15/15 static pages successfully.
+  - TypeScript strict mode checks passed with 0 errors across all workspaces.
+  - Ruff linting and formatting passed with 0 errors.
+  - Pytest test suites (5/5) passed.
 
 ---
 
 ## 2. Known Limitations & Current State
-- AI Agent reasoning, planning loops, and autonomous tool runners are deliberately omitted in Phase 1 to preserve the foundation boundary.
-- Terminal and Computer control adapters will be implemented under the Policy Engine in Phase 2.
+- Real AI agent loop execution, live shell subprocess control, and automated file rollback execution will be wired into these UI interfaces in subsequent phases.
+- Real data flows to the mock datasets will be replaced by backend API endpoints as tools are implemented.
 
 ---
 
-## 3. Prerequisites for Phase 2 (Policy Engine, Audit Subsystem & Security Kernel)
+## 3. Prerequisites for Next Phase (Phase 3: Policy Engine, Audit Subsystem & Security Kernel)
 1. Implement `PolicyEngine` (action classification, risk scoring, session grant cache).
 2. Implement `SnapshotEngine` (pre-execution file backup, SHA-256 hash checks, diff generator).
 3. Implement `AuditLedger` and rollback executor.
 4. Implement initial sandboxed tools (`filesystem.*` and guarded `terminal.execute`).
-5. User approval of Phase 1 deliverables and milestone sign-off.
+5. User approval of Phase 2 deliverables and milestone sign-off.

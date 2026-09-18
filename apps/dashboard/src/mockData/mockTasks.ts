@@ -1,0 +1,83 @@
+import type { TaskDAG } from "@nexus/types";
+
+export const mockDAGs: TaskDAG[] = [
+  {
+    dag_id: "dag_901a1bc",
+    session_id: "sess_01H9A1K4001",
+    goal: "Refactor API auth middleware to support Bearer tokens and verify with pytest",
+    status: "awaiting_approval",
+    created_at: "2026-09-18T18:30:15Z",
+    nodes: [
+      {
+        id: "step_1",
+        name: "Read current middleware source",
+        agent: "CodingAgent",
+        tool: "filesystem.read",
+        dependencies: [],
+        status: "completed",
+        result: { bytes_read: 1240, lines: 45 },
+      },
+      {
+        id: "step_2",
+        name: "Propose Bearer token authentication patch",
+        agent: "CodingAgent",
+        tool: "filesystem.modify",
+        dependencies: ["step_1"],
+        status: "awaiting_approval",
+        input: { file_path: "services/api/nexus_api/middleware.py" },
+      },
+      {
+        id: "step_3",
+        name: "Execute pytest auth test suite",
+        agent: "SystemOperatorAgent",
+        tool: "terminal.execute",
+        dependencies: ["step_2"],
+        status: "pending",
+        input: { command: "pytest services/api/tests/test_health.py" },
+      },
+      {
+        id: "step_4",
+        name: "Commit patch to Git repository",
+        agent: "CodingAgent",
+        tool: "terminal.execute",
+        dependencies: ["step_3"],
+        status: "pending",
+        input: { command: "git add . && git commit -m 'feat: bearer auth'" },
+      },
+    ],
+  },
+  {
+    dag_id: "dag_802b2de",
+    session_id: "sess_01H9A2M9002",
+    goal: "Run database migrations and verify table schema integrity",
+    status: "completed",
+    created_at: "2026-09-18T17:45:10Z",
+    completed_at: "2026-09-18T17:46:25Z",
+    nodes: [
+      {
+        id: "step_10",
+        name: "Inspect alembic configuration",
+        agent: "SystemOperatorAgent",
+        tool: "filesystem.read",
+        dependencies: [],
+        status: "completed",
+      },
+      {
+        id: "step_11",
+        name: "Run alembic upgrade head",
+        agent: "SystemOperatorAgent",
+        tool: "terminal.execute",
+        dependencies: ["step_10"],
+        status: "completed",
+      },
+      {
+        id: "step_12",
+        name: "Verify sqlite table schemas",
+        agent: "SystemOperatorAgent",
+        tool: "terminal.execute",
+        dependencies: ["step_11"],
+        status: "completed",
+      },
+    ],
+  },
+];
