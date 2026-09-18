@@ -1,51 +1,54 @@
 # NEXUS Project Status & Phase Log
 
-## Current Status: Phase 2 — NEXUS Design System + Dashboard (COMPLETED)
+## Current Status: Phase 3 — Identity + User Context (COMPLETED)
 
 Last Updated: 2026-09-18
 
 ---
 
-## 1. Completed Work in Phase 2
-- [x] **Production-Quality Operating Console Design System**:
-  - Implemented calm, technical, intelligent, premium aesthetic: dark void (`#06090e`), cyber grid background, glassmorphism panels (`rgba(13, 19, 33, 0.72)` with blur), subtle borders, electric cyan and sky blue accents, JetBrains Mono telemetry fonts.
-  - Reusable component suite: `StatusBadge`, `Card`, `MetricCard`, `DiffViewer`, `ApprovalModal`, `TaskTimeline`, `DataTable`, `ActivityFeed`, `EmptyState`, and `LoadingState`.
-- [x] **Responsive Operating Shell Architecture**:
-  - `Sidebar.tsx`: Collapsible navigation with grouped categories (`Core Console`, `Intelligence`, `Governance & Safety`, `System`), pending approval counter badges, and host OS status.
-  - `TopCommandBar.tsx`: Global search & command input capsule (`Cmd+K`), live Core API health indicator (`ONLINE` / `DEGRADED`), and navigation breadcrumbs.
-  - `CommandModal.tsx`: Global `Cmd+K` keyboard shortcut palette allowing instant jump to any subsystem.
-  - `AppShell.tsx`: Responsive layout wrapper connecting all surfaces.
-- [x] **12 Subsystem Pages Implemented & Verified**:
-  - **`/` (Dashboard Home)**: Real-time operating console, active DAG timeline summary, telemetry metric cards, quick action dispatch capsule, and live event feed.
-  - **`/sessions` (AI Sessions)**: Multi-turn thread manager, surface filter (`dashboard` / `ambient`), and captured host OS context inspector (active window, cwd, app).
-  - **`/tasks` (Tasks)**: Topological DAG graph and interactive step inspector showing inputs, outputs, agent assignment, and duration.
-  - **`/goals` (Goals)**: Autonomous goal tracker with milestone progress meters and category tags.
-  - **`/memory` (Memory)**: 5-Class Memory taxonomy explorer (Working, Conversational, Episodic, Semantic, Procedural) with provenance tracing, confidence sliders, and delete/toggle controls.
-  - **`/knowledge` (Knowledge)**: Personal knowledge base (RAG), vector similarity search sandbox, and indexed chunk inspector.
-  - **`/approvals` (Approvals)**: Dedicated Human-in-the-Loop diff approval console with unified diff viewer, risk badges (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), and granular action buttons (`[Approve Once]`, `[Approve for Session]`, `[Always Allow Read]`, `[Deny]`).
-  - **`/agents` (Agents)**: 6 specialized agent profiles (`OrchestratorAgent`, `PlanningAgent`, `CodingAgent`, `SystemOperatorAgent`, `ResearchAgent`, `DocumentAgent`, `ComputerAgent`) with system directives and capability lists.
-  - **`/tools` (Tools)**: Standardized tool capability registry (`filesystem.*`, `terminal.*`, `browser.*`, `github.*`) with JSON schemas and reversibility indicators.
-  - **`/audit` (Audit Logs)**: Immutable security ledger data table with time, agent, tool, policy decision, pre-execution snapshot link, and 1-click `[Rollback / Undo]` trigger.
-  - **`/analytics` (Analytics)**: Capstone research benchmark evaluation metrics and formal 4-way ablation matrix (Baseline vs RAG vs Memory+RAG vs Agentic NEXUS).
-  - **`/settings` (Settings)**: Multi-model AI Gateway provider configuration (OpenAI, Anthropic, Gemini, Ollama) and permission rules.
-- [x] **Automated Checks & Build Verification**:
-  - All 12 routes verified responding with `HTTP 200`.
-  - Next.js production build (`next build`) compiled 15/15 static pages successfully.
-  - TypeScript strict mode checks passed with 0 errors across all workspaces.
-  - Ruff linting and formatting passed with 0 errors.
-  - Pytest test suites (5/5) passed.
+## 1. Completed Work in Phase 3
+- [x] **Authoritative Authentication Engine**:
+  - Secure password hashing using real `bcrypt` with unique salt generation.
+  - Signed JWT access tokens with HS256 signing, expiration TTL, issuer validation, and secret key integration from `NexusSettings`.
+  - Registration endpoint (`POST /api/v1/auth/register`) with conflict checks and minimum password length enforcement.
+  - Login endpoint (`POST /api/v1/auth/login`) with credential validation and deactivated account prevention.
+  - Logout endpoint (`POST /api/v1/auth/logout`) with audit event emission.
+- [x] **User Context & Preferences**:
+  - Database schema for `users` and `user_preferences` with 1-to-1 cascade relationship.
+  - Custom user timezone configuration.
+  - Multi-model preference schema (default provider, fast model, reasoning model, temperature).
+  - Permission preferences schema (auto-grant low risk, require HITL for high risk, session grant TTL).
+  - Privacy settings schema (store audit payloads, telemetry controls, external RAG controls).
+  - Preferences patch endpoint (`PATCH /api/v1/auth/preferences`) and current user profile inspection (`GET /api/v1/auth/me`).
+- [x] **Database Models & Alembic Migrations**:
+  - `UserModel` and `UserPreferenceModel` implemented using modern SQLAlchemy 2.0 `Mapped` and `mapped_column` declarative models.
+  - Tenant foreign key `user_id` added to `sessions`, `task_dags`, `audit_logs`, and `memories`.
+  - Migration `002_identity_and_user_context.py` created and verified applying both forward and rollback across SQLite and PostgreSQL.
+- [x] **Security Audit Trail Integration**:
+  - Immutable audit trail logs recorded for all security-sensitive operations: `user_registered`, `user_login`, `user_logout`, and `user_preferences_updated`.
+- [x] **Strict Tenant Data Isolation**:
+  - Verified user A's token cannot access or authenticate as user B.
+  - Verified database queries filtered by `user_id` strictly isolate data across tenants.
+- [x] **Dashboard Frontend Authentication**:
+  - `AuthContext.tsx` providing reactive `user`, `token`, `isAuthenticated`, `login`, `register`, `logout`, and `updatePreferences`.
+  - Premium cyber glassmorphic `/login` and `/register` pages with validation, loading states, and error alerts.
+  - `TopCommandBar.tsx` updated with dynamic user identity chip, profile shortcut, and quick sign-out button.
+  - Next.js production build (`next build`) compiled 17/17 static routes successfully.
+- [x] **Automated Testing & Quality Gates**:
+  - 16/16 pytest tests passing (unit tests, integration tests, migration tests, security tests, and isolation tests).
+  - 100% clean typechecks across all packages with Mypy and TypeScript (`tsc --noEmit`).
+  - 100% clean Python linting and formatting with Ruff.
 
 ---
 
-## 2. Known Limitations & Current State
-- Real AI agent loop execution, live shell subprocess control, and automated file rollback execution will be wired into these UI interfaces in subsequent phases.
-- Real data flows to the mock datasets will be replaced by backend API endpoints as tools are implemented.
+## 2. Completed Work in Prior Phases
+- [x] **Phase 0 — Project Constitution**: Core architectural documents (`AGENTS.md`, `ARCHITECTURE.md`, `PRODUCT_SPEC.md`, `SECURITY_MODEL.md`, `ROADMAP.md`, `DATABASE_ENTITIES.md`, `API_BOUNDARIES.md`).
+- [x] **Phase 1 — Monorepo Foundation**: Monorepo scaffolding, shared packages, FastAPI backend, background worker, Alembic migration 001, Docker Compose.
+- [x] **Phase 2 — NEXUS Design System + Dashboard**: Reusable UI component suite, full 12-page operating console shell, static compilation of all routes.
 
 ---
 
-## 3. Prerequisites for Next Phase (Phase 3: Policy Engine, Audit Subsystem & Security Kernel)
-1. Implement `PolicyEngine` (action classification, risk scoring, session grant cache).
-2. Implement `SnapshotEngine` (pre-execution file backup, SHA-256 hash checks, diff generator).
-3. Implement `AuditLedger` and rollback executor.
-4. Implement initial sandboxed tools (`filesystem.*` and guarded `terminal.execute`).
-5. User approval of Phase 2 deliverables and milestone sign-off.
+## 3. Known Limitations & Prerequisites for Phase 4
+- With user identity and tenant boundaries fully established, Phase 4 will implement the Core Policy Engine, Tool Registry, Sandboxed Runners, and Automated File Snapshot/Rollback Kernel.
+- Stop after Phase 3 as required by the phase completion gate. Await user review and approval before proceeding.
+

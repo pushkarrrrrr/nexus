@@ -5,6 +5,7 @@ Compatible with both PostgreSQL and SQLite
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -16,9 +17,11 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 def utcnow():
@@ -29,16 +32,93 @@ def generate_uuid(prefix: str = "id") -> str:
     return f"{prefix}_{uuid.uuid4().hex[:16]}"
 
 
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("usr")
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    preferences: Mapped["UserPreferenceModel | None"] = relationship(
+        "UserPreferenceModel", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    sessions: Mapped[list["SessionModel"]] = relationship(
+        "SessionModel", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserPreferenceModel(Base):
+    __tablename__ = "user_preferences"
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("pref")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC", nullable=False)
+    model_preferences: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=lambda: {
+            "default_provider": "openai",
+            "fast_model": "gpt-4o-mini",
+            "reasoning_model": "gpt-4o",
+            "temperature": 0.2,
+        },
+        nullable=False,
+    )
+    permission_preferences: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=lambda: {
+            "auto_grant_low_risk": True,
+            "require_hitl_high_risk": True,
+            "session_grant_ttl_minutes": 60,
+        },
+        nullable=False,
+    )
+    privacy_settings: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        default=lambda: {
+            "store_audit_payloads": True,
+            "telemetry_enabled": False,
+            "allow_external_rag": False,
+        },
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="preferences")
+
+
 class SessionModel(Base):
     __tablename__ = "sessions"
 
     id = Column(String(64), primary_key=True, default=lambda: generate_uuid("sess"))
+    user_id = Column(
+        String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     surface = Column(String(32), nullable=False)  # dashboard, ambient
     title = Column(String(255), nullable=True)
     os_context = Column(JSON, default=dict)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
+    user = relationship("UserModel", back_populates="sessions")
     dags = relationship("TaskDAGModel", back_populates="session", cascade="all, delete-orphan")
     audit_logs = relationship(
         "AuditLogModel", back_populates="session", cascade="all, delete-orphan"
@@ -49,6 +129,9 @@ class TaskDAGModel(Base):
     __tablename__ = "task_dags"
 
     id = Column(String(64), primary_key=True, default=lambda: generate_uuid("dag"))
+    user_id = Column(
+        String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     session_id = Column(String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     goal = Column(Text, nullable=False)
     status = Column(String(32), default="pending", nullable=False)
@@ -80,6 +163,9 @@ class AuditLogModel(Base):
     __tablename__ = "audit_logs"
 
     id = Column(String(64), primary_key=True, default=lambda: generate_uuid("evt"))
+    user_id = Column(
+        String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     session_id = Column(String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     step_id = Column(String(64), nullable=True)
     agent_name = Column(String(64), nullable=False)
@@ -116,6 +202,9 @@ class MemoryModel(Base):
     __tablename__ = "memories"
 
     id = Column(String(64), primary_key=True, default=lambda: generate_uuid("mem"))
+    user_id = Column(
+        String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     memory_class = Column(String(32), nullable=False)
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)

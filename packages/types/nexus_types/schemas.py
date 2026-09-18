@@ -152,3 +152,68 @@ class TaskDAG(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
+
+
+# =====================================================================
+# Identity & User Context Schemas
+# =====================================================================
+
+
+class ModelPreferences(BaseModel):
+    default_provider: str = "openai"
+    fast_model: str = "gpt-4o-mini"
+    reasoning_model: str = "gpt-4o"
+    temperature: float = 0.2
+
+
+class PermissionPreferences(BaseModel):
+    auto_grant_low_risk: bool = True
+    require_hitl_high_risk: bool = True
+    session_grant_ttl_minutes: int = 60
+
+
+class PrivacySettings(BaseModel):
+    store_audit_payloads: bool = True
+    telemetry_enabled: bool = False
+    allow_external_rag: bool = False
+
+
+class UserPreferences(BaseModel):
+    timezone: str = "UTC"
+    model_preferences: ModelPreferences = Field(default_factory=ModelPreferences)
+    permission_preferences: PermissionPreferences = Field(default_factory=PermissionPreferences)
+    privacy_settings: PrivacySettings = Field(default_factory=PrivacySettings)
+
+
+class UserProfile(BaseModel):
+    id: str
+    email: str
+    full_name: str | None = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    preferences: UserPreferences | None = None
+
+
+class UserRegisterRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str | None = None
+
+
+class UserLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = 86400
+    user: UserProfile
+
+
+class UpdatePreferencesRequest(BaseModel):
+    timezone: str | None = None
+    model_preferences: dict[str, Any] | None = None
+    permission_preferences: dict[str, Any] | None = None
+    privacy_settings: dict[str, Any] | None = None

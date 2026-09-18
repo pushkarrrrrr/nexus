@@ -16,7 +16,7 @@ class NexusSettings(BaseSettings):
     api_port: int = Field(default=8000, alias="API_PORT")
     api_workers: int = Field(default=1, alias="API_WORKERS")
 
-    cors_origins: list[str] = Field(
+    cors_origins: list[str] | str = Field(
         default=["http://localhost:3000", "http://localhost:5173", "tauri://localhost"],
         alias="CORS_ORIGINS",
     )

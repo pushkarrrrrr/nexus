@@ -16,6 +16,9 @@ ruff check .
 echo "--> Python Ruff Format Check:"
 ruff format --check .
 
+echo "--> Python Mypy Typecheck:"
+mypy packages services
+
 echo "--> TypeScript Typecheck:"
 npm run typecheck
 

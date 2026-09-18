@@ -169,3 +169,66 @@ export interface NexusServerEvent {
   timestamp: string;
   payload: Record<string, unknown>;
 }
+
+// Identity & User Context Contracts
+
+export interface ModelPreferences {
+  default_provider: string;
+  fast_model: string;
+  reasoning_model: string;
+  temperature: number;
+}
+
+export interface PermissionPreferences {
+  auto_grant_low_risk: boolean;
+  require_hitl_high_risk: boolean;
+  session_grant_ttl_minutes: number;
+}
+
+export interface PrivacySettings {
+  store_audit_payloads: boolean;
+  telemetry_enabled: boolean;
+  allow_external_rag: boolean;
+}
+
+export interface UserPreferences {
+  timezone: string;
+  model_preferences: ModelPreferences;
+  permission_preferences: PermissionPreferences;
+  privacy_settings: PrivacySettings;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  is_active: boolean;
+  created_at: string;
+  preferences?: UserPreferences | null;
+}
+
+export interface UserRegisterRequest {
+  email: string;
+  password: string;
+  full_name?: string;
+}
+
+export interface UserLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  user: UserProfile;
+}
+
+export interface UpdatePreferencesRequest {
+  timezone?: string;
+  model_preferences?: Partial<ModelPreferences>;
+  permission_preferences?: Partial<PermissionPreferences>;
+  privacy_settings?: Partial<PrivacySettings>;
+}
+

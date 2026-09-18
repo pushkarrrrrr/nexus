@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Search, ShieldAlert, Cpu, Layers } from "lucide-react";
+import { Search, ShieldAlert, User, LogOut, LogIn } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "../../context/AuthContext";
 
 interface TopCommandBarProps {
   onOpenCommand: () => void;
@@ -11,6 +12,7 @@ interface TopCommandBarProps {
 
 export function TopCommandBar({ onOpenCommand }: TopCommandBarProps) {
   const pathname = usePathname();
+  const { user, isAuthenticated, logout } = useAuth();
   const [coreHealth, setCoreHealth] = useState<"online" | "degraded" | "checking">("checking");
 
   useEffect(() => {
@@ -89,6 +91,38 @@ export function TopCommandBar({ onOpenCommand }: TopCommandBarProps) {
             2
           </span>
         </Link>
+
+        {/* User Identity Chip */}
+        {isAuthenticated && user ? (
+          <div className="flex items-center gap-2 pl-2 border-l border-white/10">
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-white/10 text-xs font-mono text-slate-300 transition-colors"
+              title="User Settings"
+            >
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <User size={13} className="text-cyan-400" />
+              <span className="max-w-[100px] truncate">
+                {user.full_name || user.email.split("@")[0]}
+              </span>
+            </Link>
+            <button
+              onClick={() => logout()}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+              title="Sign Out"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/login"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-mono transition-colors"
+          >
+            <LogIn size={13} />
+            <span>Sign In</span>
+          </Link>
+        )}
       </div>
     </header>
   );

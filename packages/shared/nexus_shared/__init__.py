@@ -17,6 +17,8 @@ from .models import (
     SessionGrantModel,
     SessionModel,
     TaskDAGModel,
+    UserModel,
+    UserPreferenceModel,
 )
 
 __all__ = [
@@ -35,6 +37,8 @@ __all__ = [
     "SnapshotNotFoundError",
     "TaskDAGModel",
     "ToolExecutionError",
+    "UserModel",
+    "UserPreferenceModel",
     "configure_logging",
     "get_logger",
 ]

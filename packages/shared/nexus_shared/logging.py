@@ -24,6 +24,7 @@ def configure_logging(log_level: str = "INFO", json_format: bool = False) -> Non
         structlog.processors.UnicodeDecoder(),
     ]
 
+    renderer: Any
     if json_format:
         renderer = structlog.processors.JSONRenderer()
     else:
