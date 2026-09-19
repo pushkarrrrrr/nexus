@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from services.api.nexus_api.ai.routes import ai_router
 from services.api.nexus_api.auth.routes import auth_router
 from services.api.nexus_api.goals.routes import goals_router
+from services.api.nexus_api.graph.routes import graph_router
 from services.api.nexus_api.knowledge.routes import knowledge_router
 from services.api.nexus_api.memory.routes import memory_router
 from services.api.nexus_api.sessions.routes import sessions_router
@@ -16,12 +17,13 @@ v1_router.include_router(goals_router)
 v1_router.include_router(ai_router)
 v1_router.include_router(memory_router)
 v1_router.include_router(knowledge_router)
+v1_router.include_router(graph_router)
 
 
 @v1_router.get("/system/status")
 async def system_status():
     return {
         "status": "ready",
-        "phase": "phase_6_memory_knowledge_rag",
+        "phase": "phase_7_knowledge_graph",
         "supported_surfaces": ["dashboard", "ambient"],
     }

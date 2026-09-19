@@ -548,9 +548,18 @@ export interface KnowledgeSearchResponse {
   results: SourceAttribution[];
 }
 
+export interface GraphTriple {
+  subject: string;
+  relation: string;
+  object: string;
+  weight: number;
+  properties: Record<string, unknown>;
+}
+
 export interface RAGQueryRequest {
   query: string;
   include_memory?: boolean;
+  include_graph?: boolean;
   max_context_chunks?: number;
   min_similarity?: number;
   model?: string;
@@ -561,7 +570,103 @@ export interface RAGQueryResponse {
   answer: string;
   supporting_sources: SourceAttribution[];
   memory_citations: Array<Record<string, unknown>>;
+  graph_triples?: GraphTriple[];
   confidence: number;
   tokens_used: number;
 }
+
+// ============================================================================
+// Phase 7: Knowledge Graph Contracts
+// ============================================================================
+
+export type NodeType =
+  | 'concept'
+  | 'document'
+  | 'technology'
+  | 'task'
+  | 'project'
+  | 'person'
+  | 'other';
+
+export type RelationType =
+  | 'knows'
+  | 'contains'
+  | 'references'
+  | 'uses'
+  | 'depends_on'
+  | 'authored_by'
+  | 'related_to'
+  | 'other';
+
+export interface KnowledgeNodeCreate {
+  label: string;
+  node_type?: NodeType;
+  properties?: Record<string, unknown>;
+  document_id?: string;
+  memory_id?: string;
+}
+
+export interface KnowledgeNodeUpdate {
+  label?: string;
+  node_type?: NodeType;
+  properties?: Record<string, unknown>;
+}
+
+export interface KnowledgeNodeItem {
+  id: string;
+  user_id?: string;
+  label: string;
+  node_type: string;
+  properties: Record<string, unknown>;
+  document_id?: string;
+  memory_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeEdgeCreate {
+  source_node_id: string;
+  target_node_id: string;
+  relation_type?: RelationType | string;
+  weight?: number;
+  properties?: Record<string, unknown>;
+}
+
+export interface KnowledgeEdgeItem {
+  id: string;
+  user_id?: string;
+  source_node_id: string;
+  target_node_id: string;
+  relation_type: string;
+  weight: number;
+  properties: Record<string, unknown>;
+  created_at: string;
+  source_label?: string;
+  target_label?: string;
+}
+
+export interface GraphNeighborhood {
+  center_node_id: string;
+  depth: number;
+  nodes: KnowledgeNodeItem[];
+  edges: KnowledgeEdgeItem[];
+}
+
+export interface GraphOverview {
+  total_nodes: number;
+  total_edges: number;
+  nodes_by_type: Record<string, number>;
+  edges_by_relation: Record<string, number>;
+}
+
+export interface GraphShortestPath {
+  found: boolean;
+  source_node_id: string;
+  target_node_id: string;
+  length: number;
+  total_weight: number;
+  nodes: KnowledgeNodeItem[];
+  edges: KnowledgeEdgeItem[];
+}
+
 

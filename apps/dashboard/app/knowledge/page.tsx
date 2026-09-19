@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { Card } from "../../src/components/ui/Card";
 import { MetricCard } from "../../src/components/ui/MetricCard";
 import { StatusBadge } from "../../src/components/ui/StatusBadge";
@@ -19,6 +20,7 @@ import {
   AlertCircle,
   Clock,
   Quote,
+  Network,
 } from "lucide-react";
 
 export default function KnowledgePage() {
@@ -184,8 +186,15 @@ export default function KnowledgePage() {
           </p>
         </div>
 
-        {/* Upload Button */}
-        <div>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/knowledge/graph"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 font-medium font-mono text-xs transition-colors"
+          >
+            <Network size={14} />
+            <span>Knowledge Graph</span>
+          </Link>
           <input
             type="file"
             ref={fileInputRef}

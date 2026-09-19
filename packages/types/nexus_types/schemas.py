@@ -611,9 +611,18 @@ class KnowledgeSearchResponse(BaseModel):
 class RAGQueryRequest(BaseModel):
     query: str
     include_memory: bool = True
+    include_graph: bool = True
     max_context_chunks: int = 5
     min_similarity: float = 0.4
     model: str | None = None
+
+
+class GraphTriple(BaseModel):
+    subject: str
+    relation: str
+    object: str
+    weight: float = 1.0
+    properties: dict[str, Any] = Field(default_factory=dict)
 
 
 class RAGQueryResponse(BaseModel):
@@ -621,5 +630,103 @@ class RAGQueryResponse(BaseModel):
     answer: str
     supporting_sources: list[SourceAttribution] = Field(default_factory=list)
     memory_citations: list[dict[str, Any]] = Field(default_factory=list)
+    graph_triples: list[GraphTriple] = Field(default_factory=list)
     confidence: float = 0.95
     tokens_used: int = 0
+
+
+# ============================================================================
+# Phase 7: Knowledge Graph Schemas
+# ============================================================================
+
+
+class NodeType(str, Enum):
+    CONCEPT = "concept"
+    DOCUMENT = "document"
+    TECHNOLOGY = "technology"
+    TASK = "task"
+    PROJECT = "project"
+    PERSON = "person"
+    OTHER = "other"
+
+
+class RelationType(str, Enum):
+    KNOWS = "knows"
+    CONTAINS = "contains"
+    REFERENCES = "references"
+    USES = "uses"
+    DEPENDS_ON = "depends_on"
+    AUTHORED_BY = "authored_by"
+    RELATED_TO = "related_to"
+    OTHER = "other"
+
+
+class KnowledgeNodeCreate(BaseModel):
+    label: str
+    node_type: NodeType = NodeType.CONCEPT
+    properties: dict[str, Any] = Field(default_factory=dict)
+    document_id: str | None = None
+    memory_id: str | None = None
+
+
+class KnowledgeNodeUpdate(BaseModel):
+    label: str | None = None
+    node_type: NodeType | None = None
+    properties: dict[str, Any] | None = None
+
+
+class KnowledgeNodeItem(BaseModel):
+    id: str
+    user_id: str | None = None
+    label: str
+    node_type: str
+    properties: dict[str, Any] = Field(default_factory=dict)
+    document_id: str | None = None
+    memory_id: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class KnowledgeEdgeCreate(BaseModel):
+    source_node_id: str
+    target_node_id: str
+    relation_type: str = "related_to"
+    weight: float = 1.0
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
+class KnowledgeEdgeItem(BaseModel):
+    id: str
+    user_id: str | None = None
+    source_node_id: str
+    target_node_id: str
+    relation_type: str
+    weight: float = 1.0
+    properties: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    source_label: str | None = None
+    target_label: str | None = None
+
+
+class GraphNeighborhood(BaseModel):
+    center_node_id: str
+    depth: int
+    nodes: list[KnowledgeNodeItem] = Field(default_factory=list)
+    edges: list[KnowledgeEdgeItem] = Field(default_factory=list)
+
+
+class GraphOverview(BaseModel):
+    total_nodes: int
+    total_edges: int
+    nodes_by_type: dict[str, int] = Field(default_factory=dict)
+    edges_by_relation: dict[str, int] = Field(default_factory=dict)
+
+
+class GraphShortestPath(BaseModel):
+    found: bool
+    source_node_id: str
+    target_node_id: str
+    length: int = 0
+    total_weight: float = 0.0
+    nodes: list[KnowledgeNodeItem] = Field(default_factory=list)
+    edges: list[KnowledgeEdgeItem] = Field(default_factory=list)

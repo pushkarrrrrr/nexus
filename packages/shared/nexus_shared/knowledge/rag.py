@@ -8,10 +8,12 @@ source attribution on every response.
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.shared.nexus_shared.ai.gateway import get_model_gateway
+from packages.shared.nexus_shared.graph.engine import get_graph_engine
 from packages.shared.nexus_shared.knowledge.vector_store import get_vector_store
 from packages.shared.nexus_shared.memory.manager import get_memory_manager
 from packages.types.nexus_types.schemas import (
     CompletionRequest,
+    GraphTriple,
     RAGQueryRequest,
     RAGQueryResponse,
     SourceAttribution,
@@ -19,7 +21,7 @@ from packages.types.nexus_types.schemas import (
 
 
 class RAGQueryEngine:
-    """End-to-end RAG reasoning engine with source attribution."""
+    """End-to-end hybrid RAG reasoning engine with source attribution and graph expansion."""
 
     async def execute_rag_query(
         self,
@@ -27,9 +29,10 @@ class RAGQueryEngine:
         user_id: str,
         request: RAGQueryRequest,
     ) -> RAGQueryResponse:
-        """Execute semantic search, assemble context, and synthesize grounded response."""
+        """Execute semantic search, graph expansion, assemble context, and synthesize grounded response."""
         vector_store = get_vector_store()
         memory_manager = get_memory_manager()
+        graph_engine = get_graph_engine()
         gateway = get_model_gateway()
 
         # 1. Retrieve supporting document chunks
@@ -56,7 +59,9 @@ class RAGQueryEngine:
                     {
                         "memory_id": mem.id,
                         "title": mem.title,
-                        "class": mem.memory_class.value,
+                        "class": mem.memory_class.value
+                        if hasattr(mem.memory_class, "value")
+                        else str(mem.memory_class),
                         "snippet": mem.content[:150] + "..."
                         if len(mem.content) > 150
                         else mem.content,
@@ -64,7 +69,17 @@ class RAGQueryEngine:
                     }
                 )
 
-        # 3. Assemble Grounded Context Prompt
+        # 3. Retrieve connected Knowledge Graph Triples if requested
+        graph_triples: list[GraphTriple] = []
+        if request.include_graph:
+            graph_triples = await graph_engine.find_relevant_triples(
+                db=db,
+                user_id=user_id,
+                query=request.query,
+                limit=10,
+            )
+
+        # 4. Assemble Grounded Context Prompt
         context_blocks: list[str] = []
 
         if sources:
@@ -83,12 +98,20 @@ class RAGQueryEngine:
                     f"- [{mem_c['class'].upper()}] {mem_c['title']}: {mem_c['snippet']}"
                 )
 
+        if graph_triples:
+            context_blocks.append("\n--- KNOWLEDGE GRAPH RELATIONS ---")
+            for trip in graph_triples:
+                context_blocks.append(
+                    f"- ({trip.subject}) --[{trip.relation.upper()}]--> ({trip.object})"
+                )
+
         combined_context = "\n\n".join(context_blocks)
 
         system_prompt = (
             "You are the NEXUS Personal Knowledge Assistant. Answer the user's question using "
-            "ONLY the provided verified document excerpts and user memories. "
-            "Cite sources by their numbered brackets (e.g. [1], [2]) when referencing facts. "
+            "the provided verified document excerpts, user memories, and knowledge graph relations. "
+            "Cite document sources by their numbered brackets (e.g. [1], [2]) when referencing facts. "
+            "Leverage relational graph connections to provide richer multi-hop reasoning. "
             "If the information is not contained in the context, clearly state that the knowledge base "
             "does not contain sufficient information to answer the question."
         )
@@ -97,7 +120,7 @@ class RAGQueryEngine:
             f"Context Information:\n{combined_context}\n\nUser Question: {request.query}\n\nAnswer:"
         )
 
-        # 4. Generate answer through ModelGateway
+        # 5. Generate answer through ModelGateway
         comp_req = CompletionRequest(
             prompt=user_prompt,
             system_prompt=system_prompt,
@@ -114,21 +137,23 @@ class RAGQueryEngine:
             tokens_used = resp.usage.total_tokens
         except Exception as exc:  # noqa: BLE001
             # Fallback if no LLM configured: provide direct citation summary
-            if sources or memory_citations:
+            if sources or memory_citations or graph_triples:
                 answer_text = (
-                    f"Retrieved {len(sources)} relevant document excerpts and {len(memory_citations)} memories "
-                    f"matching '{request.query}'. (Direct gateway inference unavailable: {exc})"
+                    f"Retrieved {len(sources)} document excerpts, {len(memory_citations)} memories, "
+                    f"and {len(graph_triples)} graph relations matching '{request.query}'. "
+                    f"(Direct gateway inference unavailable: {exc})"
                 )
             else:
-                answer_text = f"No relevant documents or memories found matching '{request.query}'."
+                answer_text = f"No relevant documents, memories, or knowledge relations found matching '{request.query}'."
 
-        confidence = 0.95 if sources else 0.50
+        confidence = 0.95 if (sources or graph_triples) else 0.50
 
         return RAGQueryResponse(
             query=request.query,
             answer=answer_text,
             supporting_sources=sources,
             memory_citations=memory_citations,
+            graph_triples=graph_triples,
             confidence=confidence,
             tokens_used=tokens_used,
         )

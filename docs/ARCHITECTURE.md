@@ -215,3 +215,39 @@ User Context / Conversational Turn / Documents
          ├── Context Grounding & Strict Source Attribution
          └── Synthesis via ModelGateway with Grounded Citations
 ```
+
+---
+
+## 8. Knowledge Graph & Relational Traversal Architecture
+
+```
+Ingested Documents / Memories / User Entities
+   │
+   ├── [Relation Extractor]
+   │     ├── Document Entity Detection (Concepts, Technologies, Markdown Headers)
+   │     ├── Automatic Relation Linking (contains, references, uses, depends_on)
+   │     └── Memory Entity Binding (Semantic facts, Procedural tools)
+   │
+   ├── [Relational Graph Storage]
+   │     ├── KnowledgeNodeModel: (id, user_id, label, node_type, properties, document_id, memory_id)
+   │     └── KnowledgeEdgeModel: (id, user_id, source_node_id, target_node_id, relation_type, weight, properties)
+   │
+   ├── [Dual-Dialect Recursive Traversal Engine]
+   │     ├── Cycle Prevention: Path string tracking (`~cte.c.path.like('%,node,%')`)
+   │     ├── Depth Bounded: Explicit depth ceiling (`depth <= 3`)
+   │     ├── Bidirectional Traversal: Incoming + Outgoing edge resolution
+   │     ├── Neighborhood Subgraphs: k-hop expansion around center entity
+   │     └── Shortest Path Traversal: Path reconstruction with minimal edge weight
+   │
+   ├── [Hybrid Graph-RAG Retrieval]
+   │     ├── Vector Semantic Retrieval (Document chunks & memories)
+   │     ├── Entity Token Matching & Graph Expansion
+   │     ├── Relational Triples Extraction: [Subject] --(relation)--> [Object]
+   │     └── Synthesis Context Enrichment with Structured Knowledge Triples
+   │
+   └── [Interactive SVG Graph Cockpit]
+         ├── Smooth Euler Force Simulation (Damped velocity & alpha cooling)
+         ├── Clean Animation Frame Cancellation (`cancelAnimationFrame`)
+         ├── Type-Themed Nodes & Directed Relation Arrows
+         └── Click-to-Inspect Drawer with 1-Click 2-Hop Neighborhood Expansion
+```

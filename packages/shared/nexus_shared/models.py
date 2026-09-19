@@ -14,6 +14,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -107,6 +108,12 @@ class UserModel(Base):
     )
     documents: Mapped[list["DocumentModel"]] = relationship(
         "DocumentModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    knowledge_nodes: Mapped[list["KnowledgeNodeModel"]] = relationship(
+        "KnowledgeNodeModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    knowledge_edges: Mapped[list["KnowledgeEdgeModel"]] = relationship(
+        "KnowledgeEdgeModel", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -449,6 +456,10 @@ class MemoryModel(Base):
         DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
     )
 
+    knowledge_nodes: Mapped[list["KnowledgeNodeModel"]] = relationship(
+        "KnowledgeNodeModel", back_populates="memory"
+    )
+
 
 class SessionGrantModel(Base):
     __tablename__ = "session_grants"
@@ -491,6 +502,9 @@ class DocumentModel(Base):
     chunks: Mapped[list["DocumentChunkModel"]] = relationship(
         "DocumentChunkModel", back_populates="document", cascade="all, delete-orphan"
     )
+    knowledge_nodes: Mapped[list["KnowledgeNodeModel"]] = relationship(
+        "KnowledgeNodeModel", back_populates="document"
+    )
 
 
 class DocumentChunkModel(Base):
@@ -516,3 +530,99 @@ class DocumentChunkModel(Base):
     )
 
     document: Mapped["DocumentModel"] = relationship("DocumentModel", back_populates="chunks")
+
+
+class KnowledgeNodeModel(Base):
+    __tablename__ = "knowledge_nodes"
+    __table_args__ = (
+        Index("ix_knowledge_nodes_user_type", "user_id", "node_type"),
+        Index("ix_knowledge_nodes_user_label", "user_id", "label"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("node")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    label: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    node_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    properties: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    document_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    memory_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("memories.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="knowledge_nodes")
+    document: Mapped["DocumentModel | None"] = relationship(
+        "DocumentModel", back_populates="knowledge_nodes"
+    )
+    memory: Mapped["MemoryModel | None"] = relationship(
+        "MemoryModel", back_populates="knowledge_nodes"
+    )
+    outgoing_edges: Mapped[list["KnowledgeEdgeModel"]] = relationship(
+        "KnowledgeEdgeModel",
+        foreign_keys="KnowledgeEdgeModel.source_node_id",
+        back_populates="source_node",
+        cascade="all, delete-orphan",
+    )
+    incoming_edges: Mapped[list["KnowledgeEdgeModel"]] = relationship(
+        "KnowledgeEdgeModel",
+        foreign_keys="KnowledgeEdgeModel.target_node_id",
+        back_populates="target_node",
+        cascade="all, delete-orphan",
+    )
+
+
+class KnowledgeEdgeModel(Base):
+    __tablename__ = "knowledge_edges"
+    __table_args__ = (
+        Index("ix_knowledge_edges_source_rel", "source_node_id", "relation_type"),
+        Index("ix_knowledge_edges_target_rel", "target_node_id", "relation_type"),
+        Index("ix_knowledge_edges_user_rel", "user_id", "relation_type"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("edge")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_node_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("knowledge_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    target_node_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("knowledge_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    relation_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    properties: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="knowledge_edges")
+    source_node: Mapped["KnowledgeNodeModel"] = relationship(
+        "KnowledgeNodeModel",
+        foreign_keys=[source_node_id],
+        back_populates="outgoing_edges",
+    )
+    target_node: Mapped["KnowledgeNodeModel"] = relationship(
+        "KnowledgeNodeModel",
+        foreign_keys=[target_node_id],
+        back_populates="incoming_edges",
+    )
