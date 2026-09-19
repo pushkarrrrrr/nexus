@@ -251,3 +251,42 @@ Ingested Documents / Memories / User Entities
          ├── Type-Themed Nodes & Directed Relation Arrows
          └── Click-to-Inspect Drawer with 1-Click 2-Hop Neighborhood Expansion
 ```
+
+---
+
+## 9. Agent Orchestrator, Specialized Agents & Planning Architecture
+
+```
+User Goal / Autonomous Task Request
+   │
+   ├── [Orchestrator Agent] (Central Supervisor & Coordinator)
+   │     ├── Ingests OS context, user preferences, and goal statement
+   │     └── Delegates goal decomposition to PlanningAgent
+   │
+   ├── [Planning Agent] (Goal Decomposition & Recovery Replanner)
+   │     ├── Structured Output Decomposer via ModelGateway: AgentPlan -> list[PlanStep]
+   │     ├── Assigns specialized agents: "orchestrator", "planning", "research", "document"
+   │     ├── Determines tool dependencies & DAG step order
+   │     └── Failure Recovery: Generates localized recovery steps inheriting upstream dependencies
+   │
+   ├── [Relational Plan Storage]
+   │     ├── ExecutionPlanModel: (id, task_id, user_id, goal, status, current_step_index, replan_count, max_replans)
+   │     └── PlanStepModel: (id, plan_id, index, description, assigned_agent, dependencies, status, retries, result)
+   │
+   ├── [Step Scheduling & Execution Engine]
+   │     ├── Explicit Dependency Resolution: Only proceeds if all dependency step IDs are 'completed'
+   │     │     └── Downstream Skipping: Automatically marks steps 'skipped' if dependencies fail
+   │     ├── Session & Transaction Hygiene: Commits/refreshes before and after external agent I/O boundaries
+   │     ├── Dual-Point Cancellation: Checks task cancellation immediately BEFORE and AFTER step execution
+   │     └── Retry Loop & Bounded Replan: Retries up to max_retries, replans up to max_replans (capped at 3)
+   │
+   ├── [Specialized Domain Agents]
+   │     ├── ResearchAgent: Hybrid Vector + Knowledge Graph retrieval via RAGQueryEngine
+   │     ├── DocumentAgent: Ingested document catalog and chunk metadata analysis
+   │     └── OrchestratorAgent: Final structured synthesis of multi-step results
+   │
+   └── [Autonomous Execution Studio & Dashboard]
+         ├── Live Agent Roster with status and capability badges
+         ├── Autonomous Goal Execution Studio with real-time step checklist & message feed
+         └── Dedicated Plan tab on /tasks showing structured execution steps
+```

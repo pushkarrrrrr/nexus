@@ -6,7 +6,7 @@ import { mockDAGs } from "../../src/mockData/mockTasks";
 import { Card } from "../../src/components/ui/Card";
 import { StatusBadge } from "../../src/components/ui/StatusBadge";
 import { TaskTimeline } from "../../src/components/ui/TaskTimeline";
-import type { DAGNode, TaskDAG, TaskEvent, TaskStatus } from "@nexus/types";
+import type { DAGNode, ExecutionPlan, TaskDAG, TaskEvent, TaskStatus } from "@nexus/types";
 import {
   Network,
   Plus,
@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   Flame,
   ArrowRight,
+  Bot,
+  Sparkles,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -31,7 +33,9 @@ export default function TasksPage() {
   const [selectedDAG, setSelectedDAG] = useState<TaskDAG>(mockDAGs[0]);
   const [selectedNode, setSelectedNode] = useState<DAGNode | undefined>(mockDAGs[0].nodes[0]);
   const [timelineEvents, setTimelineEvents] = useState<TaskEvent[]>([]);
-  const [activeTab, setActiveTab] = useState<"dag" | "timeline">("dag");
+  const [activeTab, setActiveTab] = useState<"dag" | "plan" | "timeline">("dag");
+  const [executionPlan, setExecutionPlan] = useState<ExecutionPlan | null>(null);
+  const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [wsConnected, setWsConnected] = useState<boolean>(false);
@@ -96,6 +100,31 @@ export default function TasksPage() {
     [token]
   );
 
+  // Load Execution Plan for Selected DAG
+  const loadPlan = useCallback(
+    async (dagId: string) => {
+      if (!token) return;
+      setIsLoadingPlan(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/agents/plans/${dagId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setExecutionPlan(data);
+        } else {
+          setExecutionPlan(null);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch execution plan:", err);
+        setExecutionPlan(null);
+      } finally {
+        setIsLoadingPlan(false);
+      }
+    },
+    [token]
+  );
+
   useEffect(() => {
     if (isAuthenticated && token) {
       loadTasks();
@@ -105,13 +134,14 @@ export default function TasksPage() {
   useEffect(() => {
     if (selectedDAG?.dag_id && token) {
       loadTimeline(selectedDAG.dag_id);
+      loadPlan(selectedDAG.dag_id);
       if (selectedDAG.nodes?.length > 0) {
         setSelectedNode(selectedDAG.nodes[0]);
       } else {
         setSelectedNode(undefined);
       }
     }
-  }, [selectedDAG?.dag_id, token, loadTimeline]);
+  }, [selectedDAG?.dag_id, token, loadTimeline, loadPlan]);
 
   // WebSocket Live Updates Connection
   useEffect(() => {
@@ -423,6 +453,15 @@ export default function TasksPage() {
                     Subtasks ({selectedDAG.nodes?.length || 0})
                   </button>
                   <button
+                    onClick={() => setActiveTab("plan")}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-colors ${
+                      activeTab === "plan" ? "bg-cyan-500/20 text-cyan-300 font-semibold" : "text-slate-400"
+                    }`}
+                  >
+                    <Sparkles size={12} />
+                    <span>Agent Plan {executionPlan ? `(${executionPlan.steps.length})` : ""}</span>
+                  </button>
+                  <button
                     onClick={() => setActiveTab("timeline")}
                     className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-colors ${
                       activeTab === "timeline" ? "bg-cyan-500/20 text-cyan-300 font-semibold" : "text-slate-400"
@@ -499,10 +538,10 @@ export default function TasksPage() {
 
                     <button
                       onClick={() => setShowCancelModal(true)}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-all text-[11px]"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30 transition-all text-[11px]"
                     >
                       <XCircle size={12} />
-                      <span>Cancel Task</span>
+                      <span>Cancel</span>
                     </button>
                   </>
                 )}
@@ -524,8 +563,97 @@ export default function TasksPage() {
                   onSelectNode={(node) => setSelectedNode(node)}
                 />
               </div>
+            ) : activeTab === "plan" ? (
+              /* Tab 2: Execution Plan View */
+              <div className="mt-4 space-y-4 font-mono text-xs">
+                {isLoadingPlan ? (
+                  <div className="text-center p-8 text-slate-400 flex items-center justify-center gap-2">
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Loading execution plan...</span>
+                  </div>
+                ) : !executionPlan ? (
+                  <div className="text-center p-8 rounded-xl bg-slate-950/40 border border-white/5 text-slate-500 space-y-2">
+                    <Sparkles size={24} className="mx-auto text-slate-600" />
+                    <p>No multi-agent ExecutionPlan associated with this task DAG.</p>
+                    <p className="text-[11px] text-slate-600">
+                      Submit autonomous goals via the Agents Studio to generate structured multi-agent plans.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">Plan Status:</span>
+                        <StatusBadge status={executionPlan.status} />
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-400 text-[11px]">
+                        <span>
+                          Step {executionPlan.current_step_index + 1} of {executionPlan.steps.length}
+                        </span>
+                        <span>&bull;</span>
+                        <span>
+                          Replans: {executionPlan.replan_count} / {executionPlan.max_replans}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {executionPlan.steps.map((step) => (
+                        <div
+                          key={step.id}
+                          className={`p-3 rounded-xl border transition-all ${
+                            step.status === "completed"
+                              ? "bg-emerald-950/20 border-emerald-500/30"
+                              : step.status === "in_progress"
+                              ? "bg-cyan-950/30 border-cyan-500/40 shadow-sm"
+                              : step.status === "failed"
+                              ? "bg-rose-950/20 border-rose-500/30"
+                              : step.status === "skipped"
+                              ? "bg-slate-900/40 border-slate-700/30 opacity-60"
+                              : "bg-slate-950/60 border-white/5"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="font-semibold text-white text-xs">
+                                {step.description || step.name}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
+                                <span className="text-cyan-400 font-bold uppercase">
+                                  {step.assigned_agent || "orchestrator"}
+                                </span>
+                                {step.dependencies && step.dependencies.length > 0 && (
+                                  <span>&bull; Depends: [{step.dependencies.join(", ")}]</span>
+                                )}
+                              </div>
+                            </div>
+                            <StatusBadge status={step.status || "pending"} />
+                          </div>
+
+                          {Boolean(step.result) && (
+                            <div className="mt-2 p-2 rounded bg-black/50 border border-white/5 text-[10px] text-slate-300">
+                              <span className="text-slate-500 block uppercase">Result Payload:</span>
+                              <pre className="text-slate-400 overflow-x-auto whitespace-pre-wrap max-h-20">
+                                {typeof step.result === "object"
+                                  ? JSON.stringify(step.result, null, 2)
+                                  : String(step.result)}
+                              </pre>
+                            </div>
+                          )}
+
+                          {step.error && (
+                            <div className="mt-2 p-2 rounded bg-rose-950/30 border border-rose-500/20 text-rose-300 text-[11px]">
+                              Error: {step.error}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
-              /* Tab 2: Chronological Event Audit Timeline */
+              /* Tab 3: Chronological Event Audit Timeline */
               <div className="mt-4 space-y-3 font-mono">
                 {timelineEvents.length === 0 ? (
                   <div className="text-center p-8 text-xs text-slate-500">

@@ -1,57 +1,43 @@
 # NEXUS Project Status & Phase Log
 
-## Current Status: Phase 7 — Knowledge Graph (COMPLETED)
+## Current Status: Phase 8 — Agent Orchestrator + Planning (COMPLETED)
 
 Last Updated: 2026-09-20
 
 ---
 
-## 1. Completed Work in Phase 7
-- [x] **Relational Knowledge Graph Storage & Data Models**:
-  - `knowledge_nodes`: id, user_id, label, node_type (concept, document, technology, task, project, person, other), properties (JSON), foreign keys to documents and memories with SET NULL cascade, created_at, updated_at.
-  - `knowledge_edges`: id, user_id, source_node_id, target_node_id, relation_type (knows, contains, references, uses, depends_on, authored_by, related_to, or arbitrary domain string), weight (float), properties (JSON), created_at.
-  - Composite indexes: `(user_id, node_type)`, `(user_id, label)`, `(source_node_id, relation_type)`, `(target_node_id, relation_type)`, `(user_id, relation_type)`.
-  - Alembic migration `005_knowledge_graph.py` created, validated, and applied.
-- [x] **Cycle-Safe Dual-Dialect Recursive CTE Traversal (`GraphEngine`)**:
-  - Recursive CTE traversal for k-hop neighborhood extraction with explicit depth ceiling (`depth <= 3`).
-  - Visited path tracking (`path NOT LIKE '%,' || next_node || ',%'`) completely preventing infinite loops even on cyclic graphs (`A -> B -> C -> A`).
-  - Bidirectional neighborhood traversal (`direction="all"`, `outgoing`, `incoming`), ensuring incoming references (e.g. `Document -> contains -> Concept`) are cleanly discovered while preserving true edge directionality.
-  - Shortest path computation using recursive CTE path tracking and minimal accumulated weight ordering.
-  - Strict user-tenant isolation enforced in both base and recursive query blocks.
-- [x] **Automated Relation Extractor (`RelationExtractor`)**:
-  - Automatically identifies concepts, technical stacks, and markdown headers from uploaded documents.
-  - Automatically creates entity nodes and bidirectional links (`contains`, `references`, `uses`).
-  - Automatically connects procedural and semantic memories to concept/technology entities.
-- [x] **Hybrid Graph-RAG Retrieval Engine (`RAGQueryEngine`)**:
-  - Combines top-k semantic vector document chunks and memory items.
-  - Dynamically extracts entity tokens from query context and retrieves 1-hop / 2-hop connected graph triples.
-  - Injects structured `--- KNOWLEDGE GRAPH RELATIONS ---` into the synthesis prompt for multi-hop reasoning.
-  - Surfaces `graph_triples` directly in `RAGQueryResponse`.
-- [x] **REST API Endpoints (`/api/v1/graph`)**:
-  - `GET /api/v1/graph/overview`: Summary stats (nodes by type, edges by relation).
-  - `GET /api/v1/graph/nodes`: List nodes with optional `node_type` and `search` filters.
-  - `POST /api/v1/graph/nodes`: Create entity node.
-  - `GET /api/v1/graph/nodes/{id}`: Inspect node and its immediate incident edges.
-  - `PUT /api/v1/graph/nodes/{id}`: Update node label, type, or properties.
-  - `DELETE /api/v1/graph/nodes/{id}`: Delete node and cascade incident edges.
-  - `GET /api/v1/graph/edges`: List edges with filters.
-  - `POST /api/v1/graph/edges`: Create typed edge between entities.
-  - `DELETE /api/v1/graph/edges/{id}`: Delete edge.
-  - `GET /api/v1/graph/neighborhood/{node_id}`: Subgraph extraction up to depth $N$.
-  - `GET /api/v1/graph/shortest-path`: Shortest path between two nodes.
-  - `POST /api/v1/graph/extract/document/{doc_id}`: Trigger automated relation extraction.
-- [x] **Interactive Dashboard Graph Cockpit (`apps/dashboard/app/knowledge/graph/page.tsx`)**:
-  - Interactive SVG canvas with zoom, pan, and reset controls.
-  - High-performance, stable Euler force simulation with velocity damping and alpha cooling.
-  - Clean animation frame cancellation (`cancelAnimationFrame`) on unmount to prevent memory leaks and re-render loops.
-  - Node type color palette and icons (concept, document, technology, task, project, person).
-  - Directed edge rendering with relation type badges and arrows.
-  - Click-to-inspect side panel with node properties, incident edges, and 1-click "Expand 2-Hop Neighborhood".
-  - Shortest path finder modal and node/edge creation forms.
-  - Integrated navigation link in `/knowledge`.
+## 1. Completed Work in Phase 8
+- [x] **Specialized Agent Framework (`packages/shared/nexus_shared/agents/`)**:
+  - `BaseAgent`: Strict contract, typing, and timing telemetry (`agent_step_started`, `agent_step_completed`).
+  - `PlanningAgent`: Goal decomposition into ordered, verifiable `PlanStep`s via `ModelGateway.complete_structured(AgentPlan)` with structured recovery `replan()`.
+  - `ResearchAgent`: Grounded knowledge retrieval combining Vector search and Knowledge Graph traversal via `RAGQueryEngine`.
+  - `DocumentAgent`: Document catalog and chunk metadata analysis.
+  - `OrchestratorAgent`: Central supervisor coordinating step dispatch, DAG dependency resolution, step retries, recovery replanning, and synthesis.
+- [x] **Relational Schema & Migration (`ExecutionPlanModel`, `PlanStepModel`)**:
+  - `execution_plans`: `id`, `task_id`, `user_id`, `goal`, `status`, `current_step_index`, `replan_count`, `max_replans`, `plan_metadata`, timestamps.
+  - `plan_steps`: `id`, `plan_id`, `index`, `description`, `assigned_agent`, `required_tools`, `dependencies` (JSON list), `status`, `retry_count`, `max_retries`, `result_payload`, `error_message`, timestamps.
+  - Composite indexes for rapid queries: `(user_id, status)`, `(task_id, created_at)`, `(plan_id, index)`.
+  - Alembic migration `006_agent_plans.py` created, validated, and applied.
+- [x] **3 Critical Engineering Guardrails Implemented**:
+  1. *Session & Transaction Hygiene*: Clean commit/refresh boundaries around external LLM and agent I/O calls. Step status transitions are immediately visible to WebSockets and concurrent queries.
+  2. *Dual-Point Cancellation Checks*: Explicit checks performed immediately before dispatching an agent step AND immediately after execution, halting cleanly and skipping remaining steps.
+  3. *Explicit Dependency Resolution*: Evaluates `step.dependencies` ensuring steps only transition to `in_progress` if all upstream dependency steps have status `completed`. If an upstream step fails or is skipped, downstream dependent steps are automatically skipped.
+- [x] **Failure Recovery & Replanning**:
+  - Step-level retries with configurable `max_retries`.
+  - Automatic replanning upon step failure capped at `max_replans = 3`. Recovery steps inherit upstream dependencies so they can execute cleanly.
+  - Automatic skipping of remaining pending steps if replan limit is exceeded.
+- [x] **REST API Endpoints (`/api/v1/agents`)**:
+  - `GET /api/v1/agents/roster`: Live roster of specialized agents, capabilities, and assigned models.
+  - `POST /api/v1/agents/execute`: Synchronous or asynchronous autonomous goal execution.
+  - `GET /api/v1/agents/plans/{task_id}`: Fetch execution plan and ordered step checklist for a task.
+  - `POST /api/v1/agents/plans/{plan_id}/replan`: Manual replan trigger.
+- [x] **Dashboard Autonomous Execution Studio (`apps/dashboard/app/agents/page.tsx` & `/tasks`)**:
+  - Live Agent Roster with status indicators, capabilities, and system prompt previews.
+  - Autonomous Goal Execution Studio with real-time goal dispatch, step checklist, agent avatars, and structured message feed.
+  - Interactive Plan tab on `/tasks` displaying structured execution plans and live step status.
 - [x] **Quality Gates & Test Suite**:
-  - 92/92 pytest unit and integration tests passing (`test_knowledge_graph.py` + all prior suites).
-  - 100% clean linting (`ruff check .`), formatting (`ruff format --check .`), and strict typechecking (`mypy` with zero issues in 65 source files).
+  - 99/99 pytest tests passing across the entire repository (`test_agent_orchestrator.py` + all prior suites).
+  - 100% clean linting (`ruff check .`), formatting (`ruff format --check .`), and strict typechecking (`mypy` with zero issues in 73 source files).
   - 100% clean TypeScript typechecking (`tsc --noEmit` across monorepo) and Next.js production build (18/18 routes compiled).
 
 ---
@@ -64,10 +50,11 @@ Last Updated: 2026-09-20
 - [x] **Phase 4 — NEXUS Core + Task System**: Request/session model, topological task DAGs, subtask steps, 8-state deterministic state machine, cascading cancellation, timeline events, and WebSocket bus.
 - [x] **Phase 5 — AI Gateway**: Unified multi-provider LLM/embedding layer, structured output validation, token/cost telemetry, and fallback chains.
 - [x] **Phase 6 — Memory + Personal Knowledge + RAG**: 5-class memory taxonomy, asynchronous ingestion, dual-dialect vector store, and grounded RAG.
+- [x] **Phase 7 — Knowledge Graph**: Graph storage, cycle-safe dual-dialect recursive CTE traversal, automated relation extraction, hybrid graph-RAG retrieval, and interactive force-directed visualizer.
 
 ---
 
-## 3. Known Limitations & Prerequisites for Phase 8
-- Autonomous computer control, OS filesystem mutating operations, shell tools, and browser automation remain strictly gated behind Phase 8.
-- Phase 8 will introduce the Sandboxed Tool Registry, ComputerControlAdapter, PolicyEngine risk tiers (LOW/MEDIUM/HIGH/CRITICAL), Pre-execution Snapshots, and Reversible State Rollbacks.
-- In accordance with Section 4 of the NEXUS Engineering Constitution, execution is paused after Phase 7. Awaiting user review and approval before proceeding to Phase 8.
+## 3. Known Limitations & Prerequisites for Phase 9
+- Unrestricted computer control, OS filesystem mutating operations, shell tools, and browser automation remain strictly prohibited at this stage.
+- Phase 9 will introduce the Sandboxed Tool Registry, PolicyEngine with granular risk tiers (LOW/MEDIUM/HIGH/CRITICAL), grants cache, and Human-in-the-Loop (HITL) approval locks.
+- In accordance with Section 4 of the NEXUS Engineering Constitution, execution is paused after Phase 8. Awaiting user review and approval before proceeding to Phase 9.

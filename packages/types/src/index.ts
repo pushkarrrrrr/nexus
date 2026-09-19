@@ -369,12 +369,23 @@ export interface AgentIntent {
 
 export interface PlanStep {
   id: string;
-  name: string;
-  agent: string;
+  index?: number;
+  description?: string;
+  name?: string;
+  assigned_agent?: string;
+  agent?: string;
   tool?: string;
-  input: Record<string, unknown>;
-  dependencies: string[];
-  risk_level: RiskLevel;
+  required_tools?: string[];
+  input?: Record<string, unknown>;
+  dependencies?: string[];
+  status?: string;
+  retry_count?: number;
+  max_retries?: number;
+  result?: unknown;
+  error?: string;
+  risk_level?: RiskLevel;
+  started_at?: string;
+  completed_at?: string;
 }
 
 export interface AgentPlan {
@@ -668,5 +679,88 @@ export interface GraphShortestPath {
   nodes: KnowledgeNodeItem[];
   edges: KnowledgeEdgeItem[];
 }
+
+// Phase 8: Agent Orchestrator & Multi-Agent Planning
+
+export type AgentType =
+  | "orchestrator"
+  | "planning"
+  | "research"
+  | "document"
+  | "computer"
+  | "coding";
+
+export type PlanStepStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "skipped";
+
+export type PlanStatus =
+  | "created"
+  | "executing"
+  | "re-planning"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type AgentMessageRole = "user" | "agent" | "system" | "tool";
+
+export interface ExecutionPlan {
+  id: string;
+  task_id: string;
+  user_id?: string;
+  goal: string;
+  steps: PlanStep[];
+  current_step_index: number;
+  status: PlanStatus | string;
+  replan_count: number;
+  max_replans: number;
+  plan_metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AgentMessage {
+  id: string;
+  role: AgentMessageRole | string;
+  sender: string;
+  recipient: string;
+  content: string;
+  structured_payload?: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface AgentExecuteRequest {
+  goal: string;
+  session_id?: string;
+  auto_run?: boolean;
+  context?: Record<string, unknown>;
+}
+
+export interface AgentExecuteResponse {
+  task_id: string;
+  plan: ExecutionPlan;
+  final_response?: string;
+  status: string;
+  messages: AgentMessage[];
+}
+
+export interface ReplanRequest {
+  reason?: string;
+  error_context?: string;
+}
+
+export interface AgentRosterItem {
+  agent_type: string;
+  name: string;
+  description: string;
+  allowed_tools: string[];
+  assigned_model: string;
+  status: string;
+  system_prompt_preview: string;
+}
+
 
 

@@ -10,7 +10,8 @@ interface StatusBadgeProps {
     | "degraded"
     | "ready"
     | "cached"
-    | "idle";
+    | "idle"
+    | string;
   risk?: RiskLevel;
   label?: string;
   size?: "sm" | "md";

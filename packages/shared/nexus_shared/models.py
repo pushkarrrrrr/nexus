@@ -115,6 +115,9 @@ class UserModel(Base):
     knowledge_edges: Mapped[list["KnowledgeEdgeModel"]] = relationship(
         "KnowledgeEdgeModel", back_populates="user", cascade="all, delete-orphan"
     )
+    execution_plans: Mapped[list["ExecutionPlanModel"]] = relationship(
+        "ExecutionPlanModel", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class UserPreferenceModel(Base):
@@ -263,6 +266,9 @@ class TaskDAGModel(Base):
     )
     events: Mapped[list["TaskEventModel"]] = relationship(
         "TaskEventModel", back_populates="dag", cascade="all, delete-orphan"
+    )
+    plans: Mapped[list["ExecutionPlanModel"]] = relationship(
+        "ExecutionPlanModel", back_populates="dag", cascade="all, delete-orphan"
     )
 
     def __init__(self, **kwargs: Any) -> None:
@@ -626,3 +632,101 @@ class KnowledgeEdgeModel(Base):
         foreign_keys=[target_node_id],
         back_populates="incoming_edges",
     )
+
+
+class ExecutionPlanModel(Base):
+    __tablename__ = "execution_plans"
+    __table_args__ = (Index("ix_execution_plans_user_status", "user_id", "status"),)
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("plan")
+    )
+    task_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("task_dags.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    goal: Mapped[str] = mapped_column(Text, nullable=False)
+    current_step_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="created", nullable=False, index=True)
+    replan_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_replans: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    plan_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="execution_plans")
+    dag: Mapped["TaskDAGModel"] = relationship("TaskDAGModel", back_populates="plans")
+    steps: Mapped[list["PlanStepModel"]] = relationship(
+        "PlanStepModel",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="PlanStepModel.index",
+    )
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("plan")
+        if getattr(self, "status", None) is None:
+            self.status = "created"
+        if getattr(self, "current_step_index", None) is None:
+            self.current_step_index = 0
+        if getattr(self, "replan_count", None) is None:
+            self.replan_count = 0
+        if getattr(self, "max_replans", None) is None:
+            self.max_replans = 3
+        if getattr(self, "plan_metadata", None) is None:
+            self.plan_metadata = {}
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+        if getattr(self, "updated_at", None) is None:
+            self.updated_at = utcnow()
+
+
+class PlanStepModel(Base):
+    __tablename__ = "plan_steps"
+    __table_args__ = (Index("ix_plan_steps_plan_index", "plan_id", "index"),)
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("pstep")
+    )
+    plan_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("execution_plans.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    index: Mapped[int] = mapped_column(Integer, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    assigned_agent: Mapped[str] = mapped_column(String(64), default="orchestrator", nullable=False)
+    required_tools: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    dependencies: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_retries: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    result_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    plan: Mapped["ExecutionPlanModel"] = relationship("ExecutionPlanModel", back_populates="steps")
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("pstep")
+        if getattr(self, "assigned_agent", None) is None:
+            self.assigned_agent = "orchestrator"
+        if getattr(self, "required_tools", None) is None:
+            self.required_tools = []
+        if getattr(self, "dependencies", None) is None:
+            self.dependencies = []
+        if getattr(self, "status", None) is None:
+            self.status = "pending"
+        if getattr(self, "retry_count", None) is None:
+            self.retry_count = 0
+        if getattr(self, "max_retries", None) is None:
+            self.max_retries = 2

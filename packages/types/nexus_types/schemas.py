@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Literal
@@ -423,12 +424,35 @@ class AgentIntent(BaseModel):
 
 class PlanStep(BaseModel):
     id: str
-    name: str
+    index: int = 0
+    description: str = ""
+    name: str = ""
+    assigned_agent: str = "orchestrator"
     agent: str = "orchestrator"
     tool: str | None = None
+    required_tools: list[str] = Field(default_factory=list)
     input: dict[str, Any] = Field(default_factory=dict)
     dependencies: list[str] = Field(default_factory=list)
+    status: str = "pending"
+    retry_count: int = 0
+    max_retries: int = 2
+    result: Any | None = None
+    error: str | None = None
     risk_level: RiskLevel = RiskLevel.LOW
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+    def model_post_init(self, context: Any, /) -> None:
+        if not self.description and self.name:
+            self.description = self.name
+        elif not self.name and self.description:
+            self.name = self.description
+        if self.agent != "orchestrator" and self.assigned_agent == "orchestrator":
+            self.assigned_agent = self.agent
+        elif self.assigned_agent != "orchestrator" and self.agent == "orchestrator":
+            self.agent = self.assigned_agent
+        if self.tool and not self.required_tools:
+            self.required_tools = [self.tool]
 
 
 class AgentPlan(BaseModel):
@@ -730,3 +754,94 @@ class GraphShortestPath(BaseModel):
     total_weight: float = 0.0
     nodes: list[KnowledgeNodeItem] = Field(default_factory=list)
     edges: list[KnowledgeEdgeItem] = Field(default_factory=list)
+
+
+# Phase 8: Agent Orchestrator & Multi-Agent Planning
+
+
+class AgentType(str, Enum):
+    ORCHESTRATOR = "orchestrator"
+    PLANNING = "planning"
+    RESEARCH = "research"
+    DOCUMENT = "document"
+    COMPUTER = "computer"
+    CODING = "coding"
+
+
+class PlanStepStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class PlanStatus(str, Enum):
+    CREATED = "created"
+    EXECUTING = "executing"
+    RE_PLANNING = "re-planning"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class AgentMessageRole(str, Enum):
+    USER = "user"
+    AGENT = "agent"
+    SYSTEM = "system"
+    TOOL = "tool"
+
+
+class ExecutionPlan(BaseModel):
+    id: str
+    task_id: str
+    user_id: str | None = None
+    goal: str
+    steps: list[PlanStep] = Field(default_factory=list)
+    current_step_index: int = 0
+    status: str = "created"
+    replan_count: int = 0
+    max_replans: int = 3
+    plan_metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class AgentMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    role: str = "agent"
+    sender: str = "orchestrator"
+    recipient: str = "all"
+    content: str
+    structured_payload: dict[str, Any] | None = None
+    timestamp: datetime = Field(default_factory=utc_now)
+
+
+class AgentExecuteRequest(BaseModel):
+    goal: str
+    session_id: str | None = None
+    auto_run: bool = True
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentExecuteResponse(BaseModel):
+    task_id: str
+    plan: ExecutionPlan
+    final_response: str | None = None
+    status: str = "completed"
+    messages: list[AgentMessage] = Field(default_factory=list)
+
+
+class ReplanRequest(BaseModel):
+    reason: str | None = None
+    error_context: str | None = None
+
+
+class AgentRosterItem(BaseModel):
+    agent_type: str
+    name: str
+    description: str
+    allowed_tools: list[str] = Field(default_factory=list)
+    assigned_model: str = "gpt-4o"
+    status: str = "ready"
+    system_prompt_preview: str = ""
