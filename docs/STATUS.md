@@ -1,58 +1,51 @@
 # NEXUS Project Status & Phase Log
 
-## Current Status: Phase 3 — Identity + User Context (COMPLETED)
+## Current Status: Phase 4 — NEXUS Core + Task System (COMPLETED)
 
-Last Updated: 2026-09-18
+Last Updated: 2026-09-19
 
 ---
 
-## 1. Completed Work in Phase 3
-- [x] **Authoritative Authentication Engine**:
-  - Secure password hashing using real `bcrypt` with unique salt generation.
-  - Signed JWT access tokens with HS256 signing, expiration TTL, issuer validation, and secret key integration from `NexusSettings`.
-  - Registration endpoint (`POST /api/v1/auth/register`) with conflict checks and minimum password length enforcement.
-  - Login endpoint (`POST /api/v1/auth/login`) with credential validation and deactivated account prevention.
-  - Logout endpoint (`POST /api/v1/auth/logout`) with audit event emission.
-- [x] **User Context & Preferences**:
-  - Database schema for `users` and `user_preferences` with 1-to-1 cascade relationship.
-  - Custom user timezone configuration.
-  - Multi-model preference schema (default provider, fast model, reasoning model, temperature).
-  - Permission preferences schema (auto-grant low risk, require HITL for high risk, session grant TTL).
-  - Privacy settings schema (store audit payloads, telemetry controls, external RAG controls).
-  - Preferences patch endpoint (`PATCH /api/v1/auth/preferences`) and current user profile inspection (`GET /api/v1/auth/me`).
-- [x] **Database Models & Alembic Migrations**:
-  - `UserModel` and `UserPreferenceModel` implemented using modern SQLAlchemy 2.0 `Mapped` and `mapped_column` declarative models.
-  - Tenant foreign key `user_id` added to `sessions`, `task_dags`, `audit_logs`, and `memories`.
-  - Migration `002_identity_and_user_context.py` created and verified applying both forward and rollback across SQLite and PostgreSQL.
-- [x] **Security Audit Trail Integration**:
-  - Immutable audit trail logs recorded for all security-sensitive operations: `user_registered`, `user_login`, `user_logout`, and `user_preferences_updated`.
-- [x] **Strict Tenant Data Isolation**:
-  - Verified user A's token cannot access or authenticate as user B.
-  - Verified database queries filtered by `user_id` strictly isolate data across tenants.
-- [x] **Dashboard Frontend Authentication**:
-  - `AuthContext.tsx` providing reactive `user`, `token`, `isAuthenticated`, `login`, `register`, `logout`, and `updatePreferences`.
-  - Premium cyber glassmorphic `/login` and `/register` pages with validation, loading states, and error alerts.
-  - `TopCommandBar.tsx` updated with dynamic user identity chip, profile shortcut, and quick sign-out button.
+## 1. Completed Work in Phase 4
+- [x] **Foundational Request / Session Model**:
+  - `SessionModel` upgraded to modern SQLAlchemy 2.0 `Mapped` declarative typing.
+  - Endpoints for session creation, listing, retrieval, and deletion (`POST /api/v1/sessions`, `GET /api/v1/sessions`, `GET /api/v1/sessions/{id}`, `DELETE /api/v1/sessions/{id}`).
+  - Full tenant isolation ensuring users cannot access or delete other users' sessions.
+- [x] **Topological Task DAG & Subtask Step System**:
+  - `TaskDAGModel` and `DAGNodeModel` with `started_at`, `completed_at`, `retry_count`, and `execution_metadata`.
+  - Task creation (`POST /api/v1/tasks`) with eager subtask node decomposition, default session resolution, and initial `dag_created` timeline logging.
+  - Subtask node appending (`POST /api/v1/tasks/{task_id}/steps`) with terminal state guards.
+  - Task listing with status filtering (`GET /api/v1/tasks?status=...`) and task inspection (`GET /api/v1/tasks/{task_id}`).
+- [x] **Deterministic Task Engine State Machine**:
+  - Formally validated transition matrices for states: `PENDING`, `PLANNING`, `AWAITING_APPROVAL`, `EXECUTING`, `OBSERVING`, `COMPLETED`, `FAILED`, `CANCELLED`.
+  - `validate_task_transition` module enforcing irreversible terminal boundaries (`COMPLETED`, `FAILED`, `CANCELLED` cannot transition out).
+  - Explicit `InvalidStateTransitionError` raising HTTP 400 with descriptive reason and allowed transition hints.
+- [x] **Cascading Task Cancellation Protocol**:
+  - `POST /api/v1/tasks/{task_id}/cancel` cascading cancellation across the entire DAG.
+  - Flips DAG to `cancelled`, captures completion timestamp, and automatically transitions all ongoing and pending child steps to `cancelled` while preserving already completed steps.
+  - Logs `task_cancelled` event with audit reason and emitted over WebSocket.
+- [x] **Audit Event History & Chronological Timeline**:
+  - `TaskEventModel` (`task_events` table) storing immutable lifecycle events: `dag_created`, `node_created`, `state_transition`, `node_state_transition`, `task_cancelled`, `task_completed`, `task_failed`.
+  - Timeline inspection endpoint (`GET /api/v1/tasks/{task_id}/timeline`).
+- [x] **Real-Time WebSocket Core Bus Broadcasting**:
+  - Extended `/ws/nexus` event bus with `broadcast_event(event_type, session_id, payload)`.
+  - Broadcasts `dag.updated`, `task.state_changed`, `step.state_changed`, and `task.cancelled` events in real-time to all connected Dashboard and Ambient HUD surfaces.
+- [x] **High-Level Goals & Milestone Decomposition**:
+  - `GoalModel` (`goals` table) with title, description, category, progress, status, and JSON milestones.
+  - Endpoints: `POST /api/v1/goals`, `GET /api/v1/goals`, `GET /api/v1/goals/{id}`, `PATCH /api/v1/goals/{id}`, `DELETE /api/v1/goals/{id}`.
+  - Automatic progress calculation based on completed milestones; automatically marks goals `completed` upon reaching 100% progress.
+- [x] **Database Migration 003**:
+  - `003_tasks_and_state_machine.py` applying schema changes with multi-dialect SQLite and PostgreSQL compatibility.
+  - Tested forward upgrade and backward rollback reversibility cleanly.
+- [x] **Dashboard UI Integration (`apps/dashboard`)**:
+  - `/tasks`: Interactive DAG manager with live WebSocket status indicator, task switcher tabs, lifecycle engine transition controls (`Start Planning`, `Execute DAG`, `Observe Output`, `Mark Complete`), step execution controls, cascading cancellation modal, and chronological event timeline viewer.
+  - `/goals`: Interactive goal cards with status filter tabs (`all`, `active`, `paused`, `completed`), real-time milestone toggle checkboxes with dynamic progress bar animation, new goal modal, and pause/delete actions.
+  - `/`: Live overview console showing registered DAG count, active goal objectives, and live task dispatching.
   - Next.js production build (`next build`) compiled 17/17 static routes successfully.
-- [x] **Automated Testing & Quality Gates**:
-  - 22/22 pytest tests passing (including bcrypt 72-byte limit, invalid email regex, full_name sanitization, timezone length validation, migration portability, WebSocket disconnect, auth, token verification, and tenant isolation).
-  - 100% clean typechecks across all packages with Mypy and TypeScript (`tsc --noEmit`).
-  - 100% clean Python linting and formatting with Ruff.
-  - Production bundles verified: Next.js (`17/17` static pages) and Ambient shell (Vite).
-
----
-
-## 2. Hardening & Bug Hunt Audit
-- **Bcrypt 72-byte Limit Guard**: `hash_password` and `/register` now reject passwords > 72 bytes with HTTP 400 Bad Request instead of throwing unhandled 500 `ValueError` from bcrypt 4.0+.
-- **Email Regex & Whitespace**: Reject invalid, empty, or whitespace-only emails with HTTP 400; normalize valid emails with lowercase and strip.
-- **Full Name Sanitization**: Whitespace-only names stored as `None`; bounded to 255 chars to match database column.
-- **Timezone Validation**: Validated length <= 64 chars to prevent DB truncation errors in PostgreSQL.
-- **In-Memory Model Defaults**: `UserPreferenceModel.__init__` guarantees defaults are never `None` in Python memory before DB flush.
-- **WebSocket Disconnect Guard**: `finally: manager.disconnect(websocket, surface)` prevents leaked sockets on unexpected transport exceptions.
-- **Worker Busy-Loop Fix**: `if self._shutdown_event.is_set(): break` avoids 100% CPU busy loop on worker shutdown.
-- **Migration Portability**: `tests/test_migrations.py` updated from hardcoded `.venv/bin/alembic` to `[sys.executable, "-m", "alembic", ...]`.
-- **Settings Reactivity**: Dashboard Settings page connected to `useAuth().updatePreferences()` to persist AI Gateway provider and policy auto-approve options directly to `/api/v1/auth/preferences`.
-- **Dashboard Network Error Resilience**: Helpful error alerts displayed when backend is unreachable instead of raw browser `Failed to fetch`.
+- [x] **Comprehensive Automated Testing & Quality Gates**:
+  - 44/44 pytest unit and integration tests passing (`test_state_machine.py`, `test_tasks.py`, `test_goals.py`, `test_auth.py`, `test_migrations.py`, `test_websocket.py`, `test_health.py`, `test_config.py`).
+  - 100% clean Python linting (`ruff check .`), formatting (`ruff format --check .`), and typechecking (`mypy` with zero issues).
+  - 100% clean TypeScript typechecking (`tsc --noEmit` across monorepo).
 
 ---
 
@@ -60,10 +53,13 @@ Last Updated: 2026-09-18
 - [x] **Phase 0 — Project Constitution**: Core architectural documents (`AGENTS.md`, `ARCHITECTURE.md`, `PRODUCT_SPEC.md`, `SECURITY_MODEL.md`, `ROADMAP.md`, `DATABASE_ENTITIES.md`, `API_BOUNDARIES.md`).
 - [x] **Phase 1 — Monorepo Foundation**: Monorepo scaffolding, shared packages, FastAPI backend, background worker, Alembic migration 001, Docker Compose.
 - [x] **Phase 2 — NEXUS Design System + Dashboard**: Reusable UI component suite, full 12-page operating console shell, static compilation of all routes.
+- [x] **Phase 3 — Identity + User Context**: Authentication engine, bcrypt hashing, JWT tokens, tenant isolation, preferences, and security audit trail.
 
 ---
 
-## 3. Known Limitations & Prerequisites for Phase 4
-- With user identity and tenant boundaries fully established, Phase 4 will implement the Core Policy Engine, Tool Registry, Sandboxed Runners, and Automated File Snapshot/Rollback Kernel.
-- Stop after Phase 3 as required by the phase completion gate. Await user review and approval before proceeding.
+## 3. Known Limitations & Prerequisites for Phase 5
+- Tools and agents are currently sandboxed to orchestration and state machine transitions; autonomous agent tools and unrestricted system execution are strictly withheld as planned.
+- Phase 5 will introduce the AI Gateway (multi-provider routing for OpenAI, Anthropic, Gemini, Ollama), Prompt Management, and Structured LLM Streaming.
+- In accordance with the NEXUS Engineering Constitution, execution is paused after Phase 4. Awaiting user review and approval before starting Phase 5.
+
 

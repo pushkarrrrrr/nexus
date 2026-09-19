@@ -1,8 +1,16 @@
 import React from "react";
-import type { RiskLevel, TaskStatus } from "@nexus/types";
+import type { GoalStatus, RiskLevel, TaskStatus } from "@nexus/types";
 
 interface StatusBadgeProps {
-  status?: TaskStatus | "online" | "offline" | "degraded" | "ready" | "cached" | "idle";
+  status?:
+    | TaskStatus
+    | GoalStatus
+    | "online"
+    | "offline"
+    | "degraded"
+    | "ready"
+    | "cached"
+    | "idle";
   risk?: RiskLevel;
   label?: string;
   size?: "sm" | "md";
@@ -65,10 +73,18 @@ export function StatusBadge({
         dotColor = "bg-emerald-400";
         break;
       case "executing":
+      case "active":
         bg = "bg-cyan-500/10";
         border = "border-cyan-500/30";
         textColor = "text-cyan-400";
         dotColor = "bg-cyan-400";
+        ping = true;
+        break;
+      case "observing":
+        bg = "bg-purple-500/10";
+        border = "border-purple-500/30";
+        textColor = "text-purple-400";
+        dotColor = "bg-purple-400";
         ping = true;
         break;
       case "planning":
@@ -80,6 +96,7 @@ export function StatusBadge({
         break;
       case "awaiting_approval":
       case "degraded":
+      case "paused":
         bg = "bg-amber-500/10";
         border = "border-amber-500/30";
         textColor = "text-amber-400";
@@ -94,6 +111,7 @@ export function StatusBadge({
         dotColor = "bg-rose-400";
         break;
       case "cancelled":
+      case "archived":
       case "pending":
       default:
         bg = "bg-slate-800/80";
@@ -103,6 +121,7 @@ export function StatusBadge({
         break;
     }
   }
+
 
   const sizeClasses =
     size === "sm"

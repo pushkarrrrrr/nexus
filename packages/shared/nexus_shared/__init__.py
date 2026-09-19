@@ -1,10 +1,12 @@
 from .errors import (
     ConfigError,
     DatabaseConnectionError,
+    InvalidStateTransitionError,
     NexusError,
     PolicyViolationError,
     RollbackFailedError,
     SnapshotNotFoundError,
+    TaskNotFoundError,
     ToolExecutionError,
 )
 from .logging import configure_logging, get_logger
@@ -13,10 +15,12 @@ from .models import (
     Base,
     DAGNodeModel,
     FileSnapshotModel,
+    GoalModel,
     MemoryModel,
     SessionGrantModel,
     SessionModel,
     TaskDAGModel,
+    TaskEventModel,
     UserModel,
     UserPreferenceModel,
 )
@@ -28,6 +32,8 @@ __all__ = [
     "DAGNodeModel",
     "DatabaseConnectionError",
     "FileSnapshotModel",
+    "GoalModel",
+    "InvalidStateTransitionError",
     "MemoryModel",
     "NexusError",
     "PolicyViolationError",
@@ -36,6 +42,8 @@ __all__ = [
     "SessionModel",
     "SnapshotNotFoundError",
     "TaskDAGModel",
+    "TaskEventModel",
+    "TaskNotFoundError",
     "ToolExecutionError",
     "UserModel",
     "UserPreferenceModel",

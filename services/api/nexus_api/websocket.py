@@ -45,6 +45,17 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+async def broadcast_event(event_type: str, session_id: str, payload: dict) -> None:
+    """Helper to broadcast structured server events to all connected clients."""
+    message = {
+        "event_type": event_type,
+        "session_id": session_id,
+        "timestamp": datetime.now(UTC).isoformat(),
+        "payload": payload,
+    }
+    await manager.broadcast(message)
+
+
 @ws_router.websocket("/ws/nexus")
 async def nexus_websocket(
     websocket: WebSocket,

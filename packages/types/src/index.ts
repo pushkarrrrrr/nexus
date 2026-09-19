@@ -22,6 +22,7 @@ export type TaskStatus =
   | 'planning' 
   | 'awaiting_approval' 
   | 'executing' 
+  | 'observing'
   | 'completed' 
   | 'failed' 
   | 'cancelled';
@@ -135,6 +136,8 @@ export interface DAGNode {
   status: TaskStatus;
   result?: Record<string, unknown>;
   error?: string;
+  started_at?: string;
+  completed_at?: string;
 }
 
 export interface TaskDAG {
@@ -143,13 +146,15 @@ export interface TaskDAG {
   goal: string;
   nodes: DAGNode[];
   status: TaskStatus;
+  user_id?: string;
+  execution_metadata?: Record<string, unknown>;
   created_at: string;
   completed_at?: string;
 }
 
 // WebSocket Event Envelopes
 export interface NexusClientEvent {
-  event_type: 'request.submit' | 'approval.respond' | 'task.cancel' | 'undo.trigger';
+  event_type: 'request.submit' | 'approval.respond' | 'task.cancel' | 'undo.trigger' | 'task.transition';
   session_id: string;
   timestamp: string;
   payload: Record<string, unknown>;
@@ -159,6 +164,9 @@ export interface NexusServerEvent {
   event_type: 
     | 'token.stream' 
     | 'dag.updated' 
+    | 'task.state_changed'
+    | 'step.state_changed'
+    | 'task.cancelled'
     | 'tool.started' 
     | 'tool.completed' 
     | 'approval.required' 
@@ -231,4 +239,74 @@ export interface UpdatePreferencesRequest {
   permission_preferences?: Partial<PermissionPreferences>;
   privacy_settings?: Partial<PrivacySettings>;
 }
+
+// Phase 4: Core Task, Goal, Timeline & Session Contracts
+
+export type GoalStatus = 'active' | 'paused' | 'completed' | 'archived';
+
+export interface GoalMilestone {
+  id: string;
+  title: string;
+  completed: boolean;
+  completed_at?: string;
+}
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  session_id?: string;
+  title: string;
+  description?: string;
+  status: GoalStatus;
+  category: string;
+  progress: number;
+  milestones: GoalMilestone[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoalCreateRequest {
+  title: string;
+  description?: string;
+  category?: string;
+  session_id?: string;
+  milestones?: GoalMilestone[];
+}
+
+export interface GoalUpdateRequest {
+  title?: string;
+  description?: string;
+  status?: GoalStatus;
+  category?: string;
+  progress?: number;
+  milestones?: GoalMilestone[];
+}
+
+export interface TaskEvent {
+  id: string;
+  dag_id: string;
+  node_id?: string;
+  event_type: string;
+  from_state?: string;
+  to_state?: string;
+  message: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface TaskTimelineResponse {
+  dag_id: string;
+  events: TaskEvent[];
+  total_events: number;
+}
+
+export interface SessionRecord {
+  session_id: string;
+  user_id: string;
+  title: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 

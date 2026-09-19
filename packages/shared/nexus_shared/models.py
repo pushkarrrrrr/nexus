@@ -14,6 +14,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Integer,
     String,
     Text,
 )
@@ -54,6 +55,9 @@ class UserModel(Base):
     )
     sessions: Mapped[list["SessionModel"]] = relationship(
         "SessionModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    goals: Mapped[list["GoalModel"]] = relationship(
+        "GoalModel", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -138,55 +142,199 @@ class UserPreferenceModel(Base):
 class SessionModel(Base):
     __tablename__ = "sessions"
 
-    id = Column(String(64), primary_key=True, default=lambda: generate_uuid("sess"))
-    user_id = Column(
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("sess")
+    )
+    user_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    surface = Column(String(32), nullable=False)  # dashboard, ambient
-    title = Column(String(255), nullable=True)
-    os_context = Column(JSON, default=dict)
-    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+    surface: Mapped[str] = mapped_column(String(32), nullable=False)  # dashboard, ambient
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    os_context: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
 
-    user = relationship("UserModel", back_populates="sessions")
-    dags = relationship("TaskDAGModel", back_populates="session", cascade="all, delete-orphan")
-    audit_logs = relationship(
+    user: Mapped["UserModel | None"] = relationship("UserModel", back_populates="sessions")
+    dags: Mapped[list["TaskDAGModel"]] = relationship(
+        "TaskDAGModel", back_populates="session", cascade="all, delete-orphan"
+    )
+    goals: Mapped[list["GoalModel"]] = relationship(
+        "GoalModel", back_populates="session", cascade="all, delete-orphan"
+    )
+    audit_logs: Mapped[list["AuditLogModel"]] = relationship(
         "AuditLogModel", back_populates="session", cascade="all, delete-orphan"
     )
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("sess")
+        if getattr(self, "os_context", None) is None:
+            self.os_context = {}
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+        if getattr(self, "updated_at", None) is None:
+            self.updated_at = utcnow()
 
 
 class TaskDAGModel(Base):
     __tablename__ = "task_dags"
 
-    id = Column(String(64), primary_key=True, default=lambda: generate_uuid("dag"))
-    user_id = Column(
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("dag")
+    )
+    user_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    session_id = Column(String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
-    goal = Column(Text, nullable=False)
-    status = Column(String(32), default="pending", nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    session_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    goal: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    execution_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    session = relationship("SessionModel", back_populates="dags")
-    nodes = relationship("DAGNodeModel", back_populates="dag", cascade="all, delete-orphan")
+    session: Mapped["SessionModel"] = relationship("SessionModel", back_populates="dags")
+    nodes: Mapped[list["DAGNodeModel"]] = relationship(
+        "DAGNodeModel", back_populates="dag", cascade="all, delete-orphan"
+    )
+    events: Mapped[list["TaskEventModel"]] = relationship(
+        "TaskEventModel", back_populates="dag", cascade="all, delete-orphan"
+    )
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("dag")
+        if getattr(self, "status", None) is None:
+            self.status = "pending"
+        if getattr(self, "execution_metadata", None) is None:
+            self.execution_metadata = {}
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
 
 
 class DAGNodeModel(Base):
     __tablename__ = "dag_nodes"
 
-    id = Column(String(64), primary_key=True, default=lambda: generate_uuid("step"))
-    dag_id = Column(String(64), ForeignKey("task_dags.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(255), nullable=False)
-    agent_name = Column(String(64), nullable=False)
-    tool_name = Column(String(64), nullable=True)
-    input_payload = Column(JSON, nullable=True)
-    dependencies = Column(JSON, default=list, nullable=False)
-    status = Column(String(32), default="pending", nullable=False)
-    result_payload = Column(JSON, nullable=True)
-    error_message = Column(Text, nullable=True)
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("step")
+    )
+    dag_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("task_dags.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    agent_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    tool_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    input_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    dependencies: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    result_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    dag = relationship("TaskDAGModel", back_populates="nodes")
+    dag: Mapped["TaskDAGModel"] = relationship("TaskDAGModel", back_populates="nodes")
+    events: Mapped[list["TaskEventModel"]] = relationship("TaskEventModel", back_populates="node")
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("step")
+        if getattr(self, "status", None) is None:
+            self.status = "pending"
+        if getattr(self, "dependencies", None) is None:
+            self.dependencies = []
+        if getattr(self, "retry_count", None) is None:
+            self.retry_count = 0
+
+
+class TaskEventModel(Base):
+    __tablename__ = "task_events"
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("tevt")
+    )
+    dag_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("task_dags.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    node_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("dag_nodes.id", ondelete="SET NULL"), nullable=True
+    )
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    from_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    to_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    dag: Mapped["TaskDAGModel"] = relationship("TaskDAGModel", back_populates="events")
+    node: Mapped["DAGNodeModel | None"] = relationship("DAGNodeModel", back_populates="events")
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("tevt")
+        if getattr(self, "payload", None) is None:
+            self.payload = {}
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+
+
+class GoalModel(Base):
+    __tablename__ = "goals"
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("goal")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    session_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    category: Mapped[str] = mapped_column(String(64), default="general", nullable=False)
+    progress: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    milestones: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="goals")
+    session: Mapped["SessionModel | None"] = relationship("SessionModel", back_populates="goals")
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("goal")
+        if getattr(self, "status", None) is None:
+            self.status = "active"
+        if getattr(self, "category", None) is None:
+            self.category = "general"
+        if getattr(self, "progress", None) is None:
+            self.progress = 0.0
+        if getattr(self, "milestones", None) is None:
+            self.milestones = []
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+        if getattr(self, "updated_at", None) is None:
+            self.updated_at = utcnow()
 
 
 class AuditLogModel(Base):

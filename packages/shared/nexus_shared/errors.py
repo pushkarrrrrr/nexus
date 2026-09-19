@@ -36,3 +36,11 @@ class SnapshotNotFoundError(NexusError):
 
 class RollbackFailedError(NexusError):
     """Raised when a state restoration operation fails."""
+
+
+class InvalidStateTransitionError(NexusError):
+    """Raised when an invalid task or step state transition is attempted."""
+
+
+class TaskNotFoundError(NexusError):
+    """Raised when a requested task or step cannot be found."""

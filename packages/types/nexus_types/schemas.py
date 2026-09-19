@@ -26,6 +26,7 @@ class TaskStatus(str, Enum):
     PLANNING = "planning"
     AWAITING_APPROVAL = "awaiting_approval"
     EXECUTING = "executing"
+    OBSERVING = "observing"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -142,6 +143,8 @@ class DAGNode(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     result: dict[str, Any] | None = None
     error: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class TaskDAG(BaseModel):
@@ -150,6 +153,8 @@ class TaskDAG(BaseModel):
     goal: str
     nodes: list[DAGNode] = Field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
+    user_id: str | None = None
+    execution_metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
 
@@ -217,3 +222,127 @@ class UpdatePreferencesRequest(BaseModel):
     model_preferences: dict[str, Any] | None = None
     permission_preferences: dict[str, Any] | None = None
     privacy_settings: dict[str, Any] | None = None
+
+
+# =====================================================================
+# Phase 4: Core Task, Goal, Event, & Session Schemas
+# =====================================================================
+
+
+class GoalStatus(str, Enum):
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+
+class TaskEventType(str, Enum):
+    DAG_CREATED = "dag_created"
+    DAG_UPDATED = "dag_updated"
+    STATE_TRANSITION = "state_transition"
+    NODE_STATE_TRANSITION = "node_state_transition"
+    TASK_CANCELLED = "task_cancelled"
+    TASK_COMPLETED = "task_completed"
+    TASK_FAILED = "task_failed"
+
+
+class DAGNodeCreateRequest(BaseModel):
+    id: str | None = None
+    name: str
+    agent: str = "orchestrator"
+    tool: str | None = None
+    input: dict[str, Any] = Field(default_factory=dict)
+    dependencies: list[str] = Field(default_factory=list)
+
+
+class TaskCreateRequest(BaseModel):
+    session_id: str | None = None
+    goal: str
+    nodes: list[DAGNodeCreateRequest] = Field(default_factory=list)
+    execution_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class TaskTransitionRequest(BaseModel):
+    to_state: TaskStatus
+    reason: str | None = None
+    execution_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DAGNodeTransitionRequest(BaseModel):
+    to_state: TaskStatus
+    result: dict[str, Any] | None = None
+    error: str | None = None
+
+
+class TaskCancelRequest(BaseModel):
+    reason: str = "User cancelled task"
+
+
+class TaskEventResponse(BaseModel):
+    id: str
+    dag_id: str
+    node_id: str | None = None
+    event_type: str
+    from_state: str | None = None
+    to_state: str | None = None
+    message: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class TaskTimelineResponse(BaseModel):
+    dag_id: str
+    events: list[TaskEventResponse] = Field(default_factory=list)
+    total_events: int = 0
+
+
+class GoalMilestone(BaseModel):
+    id: str
+    title: str
+    completed: bool = False
+    completed_at: datetime | None = None
+
+
+class GoalCreateRequest(BaseModel):
+    title: str
+    description: str | None = None
+    category: str = "general"
+    session_id: str | None = None
+    milestones: list[GoalMilestone] = Field(default_factory=list)
+
+
+class GoalUpdateRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    status: GoalStatus | None = None
+    category: str | None = None
+    progress: float | None = None
+    milestones: list[GoalMilestone] | None = None
+
+
+class GoalResponse(BaseModel):
+    id: str
+    user_id: str
+    session_id: str | None = None
+    title: str
+    description: str | None = None
+    status: GoalStatus
+    category: str
+    progress: float
+    milestones: list[GoalMilestone] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
+class SessionCreateRequest(BaseModel):
+    title: str = "New Session"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SessionResponse(BaseModel):
+    session_id: str
+    user_id: str
+    title: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
