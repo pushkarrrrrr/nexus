@@ -1,64 +1,63 @@
 # NEXUS Project Status & Phase Log
 
-## Current Status: Phase 5 — AI Gateway & Model Abstraction Layer (COMPLETED)
+## Current Status: Phase 6 — Memory + Personal Knowledge + RAG (COMPLETED)
 
 Last Updated: 2026-09-20
 
 ---
 
-## 1. Completed Work in Phase 5
-- [x] **Vendor-Agnostic Model Abstraction Layer**:
-  - Abstract base interfaces (`LLMProvider`, `EmbeddingProvider`) strictly decoupling NEXUS from any single model vendor.
-  - Asynchronous HTTP provider adapters implemented without proprietary SDK vendor-lock:
-    - `OpenAIProvider`: Chat completions (`/v1/chat/completions`), Server-Sent Events (SSE) streaming, embeddings (`/v1/embeddings`), and strict structured output.
-    - `AnthropicProvider`: Messages API (`/v1/messages`), streaming delta events, structured outputs, and prompt/system prompt separation.
-    - `GeminiProvider`: Google Generative Language REST API (`generateContent`, `streamGenerateContent`), multimodal readiness, and batch embeddings.
-    - `OllamaProvider`: Local open-weights model inference (`/api/chat`, `/api/embed`), ndjson streaming, zero-cost accounting.
-    - `MockProvider`: Deterministic, controllable test adapter with simulated latency, configurable failures (`rate_limit`, `timeout`, `server_error`, `fail_count`), and structured reasoning synthesis.
-- [x] **Enterprise ModelGateway Orchestrator**:
-  - Multi-provider registration and dynamic resolution from `NexusSettings` or runtime overrides.
-  - Timeout enforcement using `asyncio.wait_for` across all completion, streaming, structured, and embedding calls.
-  - Exponential backoff retry engine (`backoff_sec * 2^attempt`) catching transient rate limits (HTTP 429) and network timeouts.
-  - Automatic multi-provider cascading fallback: cascades transparently to secondary fallback providers if primary providers fail.
-  - Graceful dev fallback to `mock` when remote API keys are unconfigured in local environments.
-  - In-memory telemetry accumulator capturing requests, tokens, costs, average latency, retries, fallbacks, and error distributions.
-- [x] **Strict Structured Output Reasoning Pipeline**:
-  - Guaranteed JSON schema adherence; eliminates fragile free-form text parsing for agent decisions.
-  - Pydantic v2 schemas: `AgentIntent`, `AgentPlan`, `PlanStep`, `AgentToolCall`, `AgentToolResult`, `AgentFinalResponse`.
-  - Markdown fence peeling sanitizer and self-healing validation.
-- [x] **Token Pricing Catalog & High-Precision Cost Tracking**:
-  - `pricing.py` maintaining normalized per-token pricing across OpenAI, Anthropic, Gemini, and Local/Mock tiers.
-  - `calculate_cost()` and `get_model_pricing()` estimating USD costs to 6 decimal places per request.
-  - High-precision latency measurement via `time.perf_counter()`.
-- [x] **Semantic Versioned Prompt Manager**:
-  - `PromptManager` with versioning (`v1.0.0`, `v2.0.0`, `latest`) and strict variable interpolation.
-  - Built-in seed templates for NEXUS core pipelines: `intent_analyzer`, `dag_planner`, `tool_selector`, `task_summarizer`.
-  - Validation guards raising `PromptTemplateError` when required variables are omitted.
-- [x] **REST API Routes (`services/api/nexus_api/ai/routes.py`)**:
-  - `GET /api/v1/ai/models`: Provider registry status, active default models, and embedding capabilities.
-  - `POST /api/v1/ai/complete`: Text completion via gateway with provider/fallback query parameters.
-  - `POST /api/v1/ai/structured`: Structured reasoning with `schema_type` (`intent`, `plan`, `tool_call`, `tool_result`, `final_response`).
-  - `POST /api/v1/ai/embed`: Vector embeddings with provider overrides.
-  - `GET /api/v1/ai/prompts`: Versioned prompt template inspection.
-  - `GET /api/v1/ai/telemetry`: Aggregated gateway token, latency, cost, and error metrics.
-  - Security: JWT authentication requirement on all execution endpoints; error status mapping (401, 422, 429, 502, 504).
-- [x] **Dashboard Settings Integration (`apps/dashboard`)**:
-  - Enhanced Multi-Model Gateway card with Mock provider support and cascading fallback provider selection.
-  - Next.js production build (`next build`) compiled 17/17 static routes successfully.
-- [x] **Comprehensive Automated Testing & Quality Gates**:
-  - 73/73 pytest unit and integration tests passing (`test_ai_gateway.py`, `test_state_machine.py`, `test_tasks.py`, `test_goals.py`, `test_auth.py`, `test_migrations.py`, `test_websocket.py`, `test_health.py`, `test_config.py`).
-  - 100% clean Python linting (`ruff check .`), formatting (`ruff format --check .`), and strict typechecking (`mypy` with zero issues in 50 source files).
-  - 100% clean TypeScript typechecking (`tsc --noEmit` across monorepo).
-- [x] **Deep Micro-Bug Audit & Hardening**:
-  - **Conversational JSON Extraction**: Built `extract_json_from_text` to handle conversational LLM preambles/postambles and unbalanced markdown fences.
-  - **Streaming Error Propagation**: Prevented silent error swallowing in SSE/ndjson streaming token iterators across OpenAI, Anthropic, Gemini, and Ollama providers.
-  - **Gemini URL Prefix Normalization**: Normalized model strings (`clean_model = model_name.removeprefix('models/')`) preventing 404s when model names contain `models/`.
-  - **Fallback Provider Validation**: Hardened gateway fallback routing against `'none'`, `'null'`, `''`, and self-referencing fallback strings.
-  - **Telemetry Metric Inconsistency**: Decoupled `_record_attempt_error` from `_record_failure` so that transient retries do not erroneously mark successful requests as failed.
-  - **Catalog Pricing Unification**: Aligned prefix matching and `models/` prefix stripping between `calculate_cost()` and `get_model_pricing()`.
-  - **Unclosed DB Engine on PostgreSQL Unreachable**: Added explicit `await test_engine.dispose()` when PostgreSQL is down and falling back to SQLite.
-  - **Monorepo Shared Types**: Exported `StructuredAIRequest` and `StructuredAIResponse` in `nexus_types` Python schemas and TypeScript definitions.
-  - **Settings Field Resolution**: Added `populate_by_name=True` to `NexusSettings` model configuration for clean programmatic and environment configuration.
+## 1. Completed Work in Phase 6
+- [x] **5-Class Memory Taxonomy**:
+  - `Working Memory`: Ephemeral, task-scoped context for currently active executions.
+  - `Conversation Memory`: Short-term context retaining recent user interaction dialogue.
+  - `Episodic Memory`: Retrospective memory capturing task accomplishments, failures, and lessons.
+  - `Semantic Memory`: Permanent facts, user preferences, and declared domain truths.
+  - `Procedural Memory`: Workflow templates, developer habits, and system interaction procedures.
+- [x] **Intelligent Memory Extraction Engine (`MemoryExtractor`)**:
+  - Automatic conversational noise filter: discards conversational pleasantries, generic greetings, and acknowledgments without permanent value.
+  - Heuristic extraction of explicit user preferences, rules, instructions, and factual declarations.
+  - Confidence scoring and semantic tagging.
+- [x] **Unified Dialect-Aware Vector Column (`VectorType`)**:
+  - Custom SQLAlchemy `TypeDecorator` binding dynamically to `settings.EMBEDDING_DIMENSION` (default 1536).
+  - Production mode: Uses native `pgvector.sqlalchemy.Vector(dim)` for PostgreSQL HNSW/IVFFlat indexing.
+  - Dev/Test mode: Graceful fallback using `sa.JSON` with in-memory normalized cosine dot product computation on SQLite.
+- [x] **Multi-Format Document Ingestion Engine (`DocumentIngestor`)**:
+  - Supported formats: PDF (page-aware via `pypdf`), Markdown, Plaintext (TXT), CSV, JSON.
+  - Positional chunking with character offsets (`char_start`, `char_end`) and page attribution (`page_number`).
+  - SHA-256 cryptographic content hashing for deduplication.
+- [x] **Asynchronous Document Processing (`BackgroundTasks`)**:
+  - `POST /api/v1/knowledge/upload` immediately returns `202 Accepted` with initial status `processing`.
+  - Non-blocking background worker extracts pages, generates embeddings in batches via `ModelGateway`, and persists chunks idempotently.
+  - Document status updates to `completed` or `failed` with granular error diagnostics.
+- [x] **Source Attribution & Dual Vector Retrieval (`VectorStore`)**:
+  - Semantic retrieval across knowledge documents and user memories.
+  - All retrieved knowledge chunks expose strict `SourceAttribution`: `document_id`, `source_title`, `file_type`, `chunk_index`, `page_number`, `char_start`, `char_end`, and `similarity_score`.
+- [x] **Grounded RAG Query Engine (`RAGQueryEngine`)**:
+  - Combines relevant document chunks and memories above configurable similarity thresholds.
+  - Grounded prompt synthesis instructing LLM to cite sources explicitly in `[Source N: Title (Page P)]` format.
+  - Complete citation references attached to final response.
+- [x] **REST API Routes (`/api/v1/memory` & `/api/v1/knowledge`)**:
+  - `GET /api/v1/memory`: Filter by memory class, search query, enabled status.
+  - `POST /api/v1/memory`: Create memory with automatic vector embedding generation.
+  - `GET /api/v1/memory/{id}`: Inspect memory details.
+  - `PUT /api/v1/memory/{id}`: Edit and correct memory contents with automatic re-embedding.
+  - `POST /api/v1/memory/{id}/toggle`: Enable/disable memory without deletion.
+  - `DELETE /api/v1/memory/{id}`: Permanently delete memory.
+  - `POST /api/v1/memory/extract`: Extract memory candidates from message turns.
+  - `POST /api/v1/knowledge/upload`: Asynchronous multi-format file upload (202 Accepted).
+  - `GET /api/v1/knowledge/documents`: List user documents with status and chunk counts.
+  - `GET /api/v1/knowledge/documents/{id}`: Inspect document details.
+  - `GET /api/v1/knowledge/documents/{id}/chunks`: Inspect paginated chunks.
+  - `DELETE /api/v1/knowledge/documents/{id}`: Delete document and cascade delete chunks.
+  - `POST /api/v1/knowledge/search`: Dialect-aware vector search with source attribution.
+  - `POST /api/v1/knowledge/rag`: Grounded Q&A over personal knowledge base.
+- [x] **Interactive Dashboard Cockpits (`apps/dashboard`)**:
+  - `/memory`: 5-category filter tabs, memory creation/editing modal, toggle switch, delete button, search bar.
+  - `/knowledge`: Drag-and-drop document uploader with progress indicator, document catalog with status badges, interactive vector search tester, and live grounded RAG question console.
+- [x] **Quality Gates & Test Suite**:
+  - 85/85 pytest unit and integration tests passing (`test_memory_knowledge.py` + all prior suites).
+  - 100% clean linting (`ruff check .`), formatting (`ruff format --check .`), and strict typechecking (`mypy` with zero issues in 60 source files).
+  - 100% clean TypeScript typechecking (`tsc --noEmit` across monorepo) and Next.js production build (17/17 routes).
 
 ---
 
@@ -68,10 +67,11 @@ Last Updated: 2026-09-20
 - [x] **Phase 2 — NEXUS Design System + Dashboard**: Reusable UI component suite, full 12-page operating console shell, static compilation of all routes.
 - [x] **Phase 3 — Identity + User Context**: Authentication engine, bcrypt hashing, JWT tokens, tenant isolation, preferences, and security audit trail.
 - [x] **Phase 4 — NEXUS Core + Task System**: Request/session model, topological task DAGs, subtask steps, 8-state deterministic state machine, cascading cancellation, timeline events, and WebSocket bus.
+- [x] **Phase 5 — AI Gateway**: Unified multi-provider LLM/embedding layer, structured output validation, token/cost telemetry, and fallback chains.
 
 ---
 
-## 3. Known Limitations & Prerequisites for Phase 6
-- The AI Gateway provides structured reasoning and planning capabilities, but agent autonomous tool execution and computer control remain strictly gated.
-- Phase 6 will introduce the Tool System, Sandboxed Tool Runners, Principle of Least Privilege permissions, and Reversible State Rollbacks.
-- In accordance with Section 4 of the NEXUS Engineering Constitution, execution is paused after Phase 5. Awaiting user review and approval before proceeding to Phase 6.
+## 3. Known Limitations & Prerequisites for Phase 7
+- Autonomous computer control, OS filesystem mutating operations, shell tools, and browser automation remain strictly gated behind Phase 7.
+- Phase 7 will introduce the Sandboxed Tool Registry, ComputerControlAdapter, PolicyEngine risk tiers (LOW/MEDIUM/HIGH/CRITICAL), Pre-execution Snapshots, and Reversible State Rollbacks.
+- In accordance with Section 4 of the NEXUS Engineering Constitution, execution is paused after Phase 6. Awaiting user review and approval before proceeding to Phase 7.

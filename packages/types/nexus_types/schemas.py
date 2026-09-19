@@ -126,9 +126,11 @@ class SnapshotRecord(BaseModel):
 
 class MemoryItem(BaseModel):
     id: str
+    user_id: str | None = None
     memory_class: MemoryClass
     title: str
     content: str
+    source_session_id: str | None = None
     source_turn_id: str | None = None
     confidence: float = 1.0
     enabled: bool = True
@@ -506,3 +508,118 @@ class StructuredAIResponse(BaseModel):
     schema_type: str
     data: dict[str, Any]
     usage: dict[str, Any]
+
+
+# ============================================================================
+# Phase 6: Memory, Knowledge & RAG Schemas
+# ============================================================================
+
+
+class MemoryCreate(BaseModel):
+    title: str
+    content: str
+    memory_class: MemoryClass = MemoryClass.SEMANTIC
+    source_session_id: str | None = None
+    confidence: float = 1.0
+    tags: list[str] = Field(default_factory=list)
+    enabled: bool = True
+
+
+class MemoryUpdate(BaseModel):
+    title: str | None = None
+    content: str | None = None
+    memory_class: MemoryClass | None = None
+    confidence: float | None = None
+    tags: list[str] | None = None
+    enabled: bool | None = None
+
+
+class MemoryExtractRequest(BaseModel):
+    messages: list[dict[str, str]]
+    session_id: str | None = None
+
+
+class MemoryExtractResponse(BaseModel):
+    extracted_count: int
+    memories: list[MemoryItem] = Field(default_factory=list)
+
+
+class DocumentStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class DocumentItem(BaseModel):
+    id: str
+    user_id: str | None = None
+    filename: str
+    file_type: str
+    file_size_bytes: int
+    sha256: str
+    chunk_count: int = 0
+    status: DocumentStatus = DocumentStatus.PENDING
+    error_message: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentUploadResponse(BaseModel):
+    document: DocumentItem
+    message: str
+
+
+class DocumentChunkItem(BaseModel):
+    id: str
+    document_id: str
+    chunk_index: int
+    content: str
+    page_number: int | None = None
+    char_start: int | None = None
+    char_end: int | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class SourceAttribution(BaseModel):
+    document_id: str
+    source_title: str
+    file_type: str
+    chunk_index: int
+    page_number: int | None = None
+    char_start: int | None = None
+    char_end: int | None = None
+    similarity_score: float
+    snippet: str
+
+
+class KnowledgeSearchRequest(BaseModel):
+    query: str
+    limit: int = 5
+    min_similarity: float = 0.4
+    document_ids: list[str] | None = None
+
+
+class KnowledgeSearchResponse(BaseModel):
+    query: str
+    total_chunks_matched: int
+    results: list[SourceAttribution] = Field(default_factory=list)
+
+
+class RAGQueryRequest(BaseModel):
+    query: str
+    include_memory: bool = True
+    max_context_chunks: int = 5
+    min_similarity: float = 0.4
+    model: str | None = None
+
+
+class RAGQueryResponse(BaseModel):
+    query: str
+    answer: str
+    supporting_sources: list[SourceAttribution] = Field(default_factory=list)
+    memory_citations: list[dict[str, Any]] = Field(default_factory=list)
+    confidence: float = 0.95
+    tokens_used: int = 0

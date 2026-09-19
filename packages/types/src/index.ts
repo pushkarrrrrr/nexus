@@ -115,9 +115,11 @@ export interface SnapshotRecord {
 
 export interface MemoryItem {
   id: string;
+  user_id?: string;
   memory_class: MemoryClass;
   title: string;
   content: string;
+  source_session_id?: string;
   source_turn_id?: string;
   confidence: number;
   enabled: boolean;
@@ -453,3 +455,113 @@ export interface StructuredAIResponse {
   data: Record<string, unknown>;
   usage: Record<string, unknown>;
 }
+
+// ============================================================================
+// Phase 6: Memory, Knowledge & RAG Contracts
+// ============================================================================
+
+export interface MemoryCreate {
+  title: string;
+  content: string;
+  memory_class: MemoryClass;
+  source_session_id?: string;
+  confidence?: number;
+  tags?: string[];
+  enabled?: boolean;
+}
+
+export interface MemoryUpdate {
+  title?: string;
+  content?: string;
+  memory_class?: MemoryClass;
+  confidence?: number;
+  tags?: string[];
+  enabled?: boolean;
+}
+
+export interface MemoryExtractRequest {
+  messages: Array<{ role: string; content: string }>;
+  session_id?: string;
+}
+
+export interface MemoryExtractResponse {
+  extracted_count: number;
+  memories: MemoryItem[];
+}
+
+export type DocumentStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface DocumentItem {
+  id: string;
+  user_id?: string;
+  filename: string;
+  file_type: string;
+  file_size_bytes: number;
+  sha256: string;
+  chunk_count: number;
+  status: DocumentStatus;
+  error_message?: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentUploadResponse {
+  document: DocumentItem;
+  message: string;
+}
+
+export interface DocumentChunkItem {
+  id: string;
+  document_id: string;
+  chunk_index: number;
+  content: string;
+  page_number?: number;
+  char_start?: number;
+  char_end?: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SourceAttribution {
+  document_id: string;
+  source_title: string;
+  file_type: string;
+  chunk_index: number;
+  page_number?: number;
+  char_start?: number;
+  char_end?: number;
+  similarity_score: number;
+  snippet: string;
+}
+
+export interface KnowledgeSearchRequest {
+  query: string;
+  limit?: number;
+  min_similarity?: number;
+  document_ids?: string[];
+}
+
+export interface KnowledgeSearchResponse {
+  query: string;
+  total_chunks_matched: number;
+  results: SourceAttribution[];
+}
+
+export interface RAGQueryRequest {
+  query: string;
+  include_memory?: boolean;
+  max_context_chunks?: number;
+  min_similarity?: number;
+  model?: string;
+}
+
+export interface RAGQueryResponse {
+  query: string;
+  answer: string;
+  supporting_sources: SourceAttribution[];
+  memory_citations: Array<Record<string, unknown>>;
+  confidence: number;
+  tokens_used: number;
+}
+

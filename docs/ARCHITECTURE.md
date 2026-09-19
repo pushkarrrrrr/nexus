@@ -183,3 +183,35 @@ The **Dashboard** and **Ambient Layer** are two complementary interfaces to the 
 - **Role Differentiation**:
   - *Ambient Layer*: Ephemeral, low-friction, high-velocity summon for in-flow queries, quick context actions, and prompt approvals.
   - *Dashboard*: Deep analytical cockpit for reviewing complex DAGs, multi-file diff inspections, memory graph editing, audit log rollbacks, and system configurations.
+
+---
+
+## 7. Memory, Knowledge & Personal RAG Architecture
+
+```
+User Context / Conversational Turn / Documents
+   │
+   ├── [Memory Extractor] (Noise filter, heuristic classification)
+   │     ├── Working Memory (Task-scoped, active execution context)
+   │     ├── Conversation Memory (Short-term context, recent interaction turns)
+   │     ├── Episodic Memory (Events, task outcomes, retrospective lessons)
+   │     ├── Semantic Memory (Permanent facts, preferences, user declarations)
+   │     └── Procedural Memory (Reusable workflows, user coding habits)
+   │
+   ├── [Document Ingestion Pipeline] (BackgroundTasks / Async Worker)
+   │     ├── Multi-Format Parser (PDF with PyPDF, Markdown, TXT, CSV, JSON)
+   │     ├── Token / Character-Aware Chunking (Overlap + Positional metadata)
+   │     └── SHA-256 Deduplication & Idempotent Upsert
+   │
+   ├── [Dual-Mode Vector Store]
+   │     ├── VectorType Custom TypeDecorator (Dialect-aware)
+   │     │     ├── PostgreSQL: pgvector.sqlalchemy.Vector(settings.EMBEDDING_DIMENSION)
+   │     │     └── SQLite: sa.JSON with in-memory normalized cosine dot product
+   │     └── Batch Embedding Generation via AI Gateway
+   │
+   └── [RAG Synthesis Engine]
+         ├── Multi-Source Semantic Retrieval (Top-K Knowledge + Top-K Memories)
+         ├── Threshold Filtering (Relevance Score Cutoff)
+         ├── Context Grounding & Strict Source Attribution
+         └── Synthesis via ModelGateway with Grounded Citations
+```

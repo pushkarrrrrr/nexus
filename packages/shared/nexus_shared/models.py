@@ -19,6 +19,52 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeDecorator
+
+from packages.config.nexus_config import get_settings
+
+PgVector: Any
+try:
+    from pgvector.sqlalchemy import Vector as PgVector
+except ImportError:
+    PgVector = None
+
+
+class VectorType(TypeDecorator):
+    """Unified dialect-aware Vector column.
+
+    Uses pgvector.sqlalchemy.Vector on PostgreSQL, and sa.JSON on SQLite.
+    Embedding dimension defaults dynamically to settings.EMBEDDING_DIMENSION.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self, dim: int | None = None, *args: Any, **kwargs: Any) -> None:
+        if dim is None:
+            settings = get_settings()
+            dim = getattr(settings, "embedding_dimension", 1536)
+        self.dim = dim
+        super().__init__(*args, **kwargs)
+
+    def load_dialect_impl(self, dialect: Any) -> Any:
+        if dialect.name == "postgresql" and PgVector is not None:
+            return dialect.type_descriptor(PgVector(self.dim))
+        return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        return value
+
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
+        if value is None:
+            return None
+        if hasattr(value, "tolist"):
+            return value.tolist()
+        return list(value)
 
 
 class Base(DeclarativeBase):
@@ -58,6 +104,9 @@ class UserModel(Base):
     )
     goals: Mapped[list["GoalModel"]] = relationship(
         "GoalModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    documents: Mapped[list["DocumentModel"]] = relationship(
+        "DocumentModel", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -379,19 +428,26 @@ class FileSnapshotModel(Base):
 class MemoryModel(Base):
     __tablename__ = "memories"
 
-    id = Column(String(64), primary_key=True, default=lambda: generate_uuid("mem"))
-    user_id = Column(
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("mem")
+    )
+    user_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    memory_class = Column(String(32), nullable=False)
-    title = Column(String(255), nullable=False)
-    content = Column(Text, nullable=False)
-    source_session_id = Column(String(64), nullable=True)
-    confidence = Column(Float, default=1.0, nullable=False)
-    enabled = Column(Boolean, default=True, nullable=False)
-    tags = Column(JSON, default=list, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+    memory_class: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source_session_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confidence: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(VectorType(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
 
 
 class SessionGrantModel(Base):
@@ -403,3 +459,60 @@ class SessionGrantModel(Base):
     pattern = Column(Text, nullable=False)
     granted_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentModel(Base):
+    __tablename__ = "documents"
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("doc")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    doc_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSON, default=dict, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="documents")
+    chunks: Mapped[list["DocumentChunkModel"]] = relationship(
+        "DocumentChunkModel", back_populates="document", cascade="all, delete-orphan"
+    )
+
+
+class DocumentChunkModel(Base):
+    __tablename__ = "document_chunks"
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("chk")
+    )
+    document_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    char_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    char_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(VectorType(), nullable=True)
+    chunk_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSON, default=dict, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    document: Mapped["DocumentModel"] = relationship("DocumentModel", back_populates="chunks")
