@@ -44,3 +44,23 @@ class InvalidStateTransitionError(NexusError):
 
 class TaskNotFoundError(NexusError):
     """Raised when a requested task or step cannot be found."""
+
+
+class ModelProviderError(NexusError):
+    """Raised when an external model provider encounters an unrecoverable failure."""
+
+
+class ModelTimeoutError(NexusError):
+    """Raised when a model completion or embedding request times out."""
+
+
+class ModelRateLimitError(NexusError):
+    """Raised when a model provider returns a rate limit (HTTP 429)."""
+
+
+class StructuredOutputValidationError(NexusError):
+    """Raised when an LLM response cannot be validated against the requested Pydantic schema."""
+
+
+class PromptTemplateError(NexusError):
+    """Raised when prompt interpolation fails due to missing or invalid variables."""

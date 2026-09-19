@@ -1,50 +1,53 @@
 # NEXUS Project Status & Phase Log
 
-## Current Status: Phase 4 — NEXUS Core + Task System (COMPLETED)
+## Current Status: Phase 5 — AI Gateway & Model Abstraction Layer (COMPLETED)
 
-Last Updated: 2026-09-19
+Last Updated: 2026-09-20
 
 ---
 
-## 1. Completed Work in Phase 4
-- [x] **Foundational Request / Session Model**:
-  - `SessionModel` upgraded to modern SQLAlchemy 2.0 `Mapped` declarative typing.
-  - Endpoints for session creation, listing, retrieval, and deletion (`POST /api/v1/sessions`, `GET /api/v1/sessions`, `GET /api/v1/sessions/{id}`, `DELETE /api/v1/sessions/{id}`).
-  - Full tenant isolation ensuring users cannot access or delete other users' sessions.
-- [x] **Topological Task DAG & Subtask Step System**:
-  - `TaskDAGModel` and `DAGNodeModel` with `started_at`, `completed_at`, `retry_count`, and `execution_metadata`.
-  - Task creation (`POST /api/v1/tasks`) with eager subtask node decomposition, default session resolution, and initial `dag_created` timeline logging.
-  - Subtask node appending (`POST /api/v1/tasks/{task_id}/steps`) with terminal state guards.
-  - Task listing with status filtering (`GET /api/v1/tasks?status=...`) and task inspection (`GET /api/v1/tasks/{task_id}`).
-- [x] **Deterministic Task Engine State Machine**:
-  - Formally validated transition matrices for states: `PENDING`, `PLANNING`, `AWAITING_APPROVAL`, `EXECUTING`, `OBSERVING`, `COMPLETED`, `FAILED`, `CANCELLED`.
-  - `validate_task_transition` module enforcing irreversible terminal boundaries (`COMPLETED`, `FAILED`, `CANCELLED` cannot transition out).
-  - Explicit `InvalidStateTransitionError` raising HTTP 400 with descriptive reason and allowed transition hints.
-- [x] **Cascading Task Cancellation Protocol**:
-  - `POST /api/v1/tasks/{task_id}/cancel` cascading cancellation across the entire DAG.
-  - Flips DAG to `cancelled`, captures completion timestamp, and automatically transitions all ongoing and pending child steps to `cancelled` while preserving already completed steps.
-  - Logs `task_cancelled` event with audit reason and emitted over WebSocket.
-- [x] **Audit Event History & Chronological Timeline**:
-  - `TaskEventModel` (`task_events` table) storing immutable lifecycle events: `dag_created`, `node_created`, `state_transition`, `node_state_transition`, `task_cancelled`, `task_completed`, `task_failed`.
-  - Timeline inspection endpoint (`GET /api/v1/tasks/{task_id}/timeline`).
-- [x] **Real-Time WebSocket Core Bus Broadcasting**:
-  - Extended `/ws/nexus` event bus with `broadcast_event(event_type, session_id, payload)`.
-  - Broadcasts `dag.updated`, `task.state_changed`, `step.state_changed`, and `task.cancelled` events in real-time to all connected Dashboard and Ambient HUD surfaces.
-- [x] **High-Level Goals & Milestone Decomposition**:
-  - `GoalModel` (`goals` table) with title, description, category, progress, status, and JSON milestones.
-  - Endpoints: `POST /api/v1/goals`, `GET /api/v1/goals`, `GET /api/v1/goals/{id}`, `PATCH /api/v1/goals/{id}`, `DELETE /api/v1/goals/{id}`.
-  - Automatic progress calculation based on completed milestones; automatically marks goals `completed` upon reaching 100% progress.
-- [x] **Database Migration 003**:
-  - `003_tasks_and_state_machine.py` applying schema changes with multi-dialect SQLite and PostgreSQL compatibility.
-  - Tested forward upgrade and backward rollback reversibility cleanly.
-- [x] **Dashboard UI Integration (`apps/dashboard`)**:
-  - `/tasks`: Interactive DAG manager with live WebSocket status indicator, task switcher tabs, lifecycle engine transition controls (`Start Planning`, `Execute DAG`, `Observe Output`, `Mark Complete`), step execution controls, cascading cancellation modal, and chronological event timeline viewer.
-  - `/goals`: Interactive goal cards with status filter tabs (`all`, `active`, `paused`, `completed`), real-time milestone toggle checkboxes with dynamic progress bar animation, new goal modal, and pause/delete actions.
-  - `/`: Live overview console showing registered DAG count, active goal objectives, and live task dispatching.
+## 1. Completed Work in Phase 5
+- [x] **Vendor-Agnostic Model Abstraction Layer**:
+  - Abstract base interfaces (`LLMProvider`, `EmbeddingProvider`) strictly decoupling NEXUS from any single model vendor.
+  - Asynchronous HTTP provider adapters implemented without proprietary SDK vendor-lock:
+    - `OpenAIProvider`: Chat completions (`/v1/chat/completions`), Server-Sent Events (SSE) streaming, embeddings (`/v1/embeddings`), and strict structured output.
+    - `AnthropicProvider`: Messages API (`/v1/messages`), streaming delta events, structured outputs, and prompt/system prompt separation.
+    - `GeminiProvider`: Google Generative Language REST API (`generateContent`, `streamGenerateContent`), multimodal readiness, and batch embeddings.
+    - `OllamaProvider`: Local open-weights model inference (`/api/chat`, `/api/embed`), ndjson streaming, zero-cost accounting.
+    - `MockProvider`: Deterministic, controllable test adapter with simulated latency, configurable failures (`rate_limit`, `timeout`, `server_error`, `fail_count`), and structured reasoning synthesis.
+- [x] **Enterprise ModelGateway Orchestrator**:
+  - Multi-provider registration and dynamic resolution from `NexusSettings` or runtime overrides.
+  - Timeout enforcement using `asyncio.wait_for` across all completion, streaming, structured, and embedding calls.
+  - Exponential backoff retry engine (`backoff_sec * 2^attempt`) catching transient rate limits (HTTP 429) and network timeouts.
+  - Automatic multi-provider cascading fallback: cascades transparently to secondary fallback providers if primary providers fail.
+  - Graceful dev fallback to `mock` when remote API keys are unconfigured in local environments.
+  - In-memory telemetry accumulator capturing requests, tokens, costs, average latency, retries, fallbacks, and error distributions.
+- [x] **Strict Structured Output Reasoning Pipeline**:
+  - Guaranteed JSON schema adherence; eliminates fragile free-form text parsing for agent decisions.
+  - Pydantic v2 schemas: `AgentIntent`, `AgentPlan`, `PlanStep`, `AgentToolCall`, `AgentToolResult`, `AgentFinalResponse`.
+  - Markdown fence peeling sanitizer and self-healing validation.
+- [x] **Token Pricing Catalog & High-Precision Cost Tracking**:
+  - `pricing.py` maintaining normalized per-token pricing across OpenAI, Anthropic, Gemini, and Local/Mock tiers.
+  - `calculate_cost()` and `get_model_pricing()` estimating USD costs to 6 decimal places per request.
+  - High-precision latency measurement via `time.perf_counter()`.
+- [x] **Semantic Versioned Prompt Manager**:
+  - `PromptManager` with versioning (`v1.0.0`, `v2.0.0`, `latest`) and strict variable interpolation.
+  - Built-in seed templates for NEXUS core pipelines: `intent_analyzer`, `dag_planner`, `tool_selector`, `task_summarizer`.
+  - Validation guards raising `PromptTemplateError` when required variables are omitted.
+- [x] **REST API Routes (`services/api/nexus_api/ai/routes.py`)**:
+  - `GET /api/v1/ai/models`: Provider registry status, active default models, and embedding capabilities.
+  - `POST /api/v1/ai/complete`: Text completion via gateway with provider/fallback query parameters.
+  - `POST /api/v1/ai/structured`: Structured reasoning with `schema_type` (`intent`, `plan`, `tool_call`, `tool_result`, `final_response`).
+  - `POST /api/v1/ai/embed`: Vector embeddings with provider overrides.
+  - `GET /api/v1/ai/prompts`: Versioned prompt template inspection.
+  - `GET /api/v1/ai/telemetry`: Aggregated gateway token, latency, cost, and error metrics.
+  - Security: JWT authentication requirement on all execution endpoints; error status mapping (401, 422, 429, 502, 504).
+- [x] **Dashboard Settings Integration (`apps/dashboard`)**:
+  - Enhanced Multi-Model Gateway card with Mock provider support and cascading fallback provider selection.
   - Next.js production build (`next build`) compiled 17/17 static routes successfully.
 - [x] **Comprehensive Automated Testing & Quality Gates**:
-  - 44/44 pytest unit and integration tests passing (`test_state_machine.py`, `test_tasks.py`, `test_goals.py`, `test_auth.py`, `test_migrations.py`, `test_websocket.py`, `test_health.py`, `test_config.py`).
-  - 100% clean Python linting (`ruff check .`), formatting (`ruff format --check .`), and typechecking (`mypy` with zero issues).
+  - 69/69 pytest unit and integration tests passing (`test_ai_gateway.py`, `test_state_machine.py`, `test_tasks.py`, `test_goals.py`, `test_auth.py`, `test_migrations.py`, `test_websocket.py`, `test_health.py`, `test_config.py`).
+  - 100% clean Python linting (`ruff check .`), formatting (`ruff format --check .`), and strict typechecking (`mypy` with zero issues in 49 source files).
   - 100% clean TypeScript typechecking (`tsc --noEmit` across monorepo).
 
 ---
@@ -54,12 +57,11 @@ Last Updated: 2026-09-19
 - [x] **Phase 1 — Monorepo Foundation**: Monorepo scaffolding, shared packages, FastAPI backend, background worker, Alembic migration 001, Docker Compose.
 - [x] **Phase 2 — NEXUS Design System + Dashboard**: Reusable UI component suite, full 12-page operating console shell, static compilation of all routes.
 - [x] **Phase 3 — Identity + User Context**: Authentication engine, bcrypt hashing, JWT tokens, tenant isolation, preferences, and security audit trail.
+- [x] **Phase 4 — NEXUS Core + Task System**: Request/session model, topological task DAGs, subtask steps, 8-state deterministic state machine, cascading cancellation, timeline events, and WebSocket bus.
 
 ---
 
-## 3. Known Limitations & Prerequisites for Phase 5
-- Tools and agents are currently sandboxed to orchestration and state machine transitions; autonomous agent tools and unrestricted system execution are strictly withheld as planned.
-- Phase 5 will introduce the AI Gateway (multi-provider routing for OpenAI, Anthropic, Gemini, Ollama), Prompt Management, and Structured LLM Streaming.
-- In accordance with the NEXUS Engineering Constitution, execution is paused after Phase 4. Awaiting user review and approval before starting Phase 5.
-
-
+## 3. Known Limitations & Prerequisites for Phase 6
+- The AI Gateway provides structured reasoning and planning capabilities, but agent autonomous tool execution and computer control remain strictly gated.
+- Phase 6 will introduce the Tool System, Sandboxed Tool Runners, Principle of Least Privilege permissions, and Reversible State Rollbacks.
+- In accordance with Section 4 of the NEXUS Engineering Constitution, execution is paused after Phase 5. Awaiting user review and approval before proceeding to Phase 6.

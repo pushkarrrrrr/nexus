@@ -34,6 +34,9 @@ class NexusSettings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     default_ai_provider: str = Field(default="openai", alias="DEFAULT_AI_PROVIDER")
+    default_fallback_provider: str | None = Field(default=None, alias="DEFAULT_FALLBACK_PROVIDER")
+    ai_request_timeout_sec: float = Field(default=60.0, alias="AI_REQUEST_TIMEOUT_SEC")
+    ai_max_retries: int = Field(default=2, alias="AI_MAX_RETRIES")
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")

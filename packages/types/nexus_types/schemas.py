@@ -1,8 +1,12 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class ActionType(str, Enum):
@@ -78,20 +82,20 @@ class ApprovalRequest(BaseModel):
     reason: str
     command_args: dict[str, Any] | None = None
     diff_preview: FileDiffPreview | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     expires_at: datetime | None = None
 
 
 class ApprovalResponse(BaseModel):
     approval_id: str
     decision: ApprovalDecisionType
-    decided_at: datetime = Field(default_factory=datetime.utcnow)
+    decided_at: datetime = Field(default_factory=utc_now)
     feedback_notes: str | None = None
 
 
 class AuditEvent(BaseModel):
     event_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utc_now)
     session_id: str
     step_id: str | None = None
     agent_name: str
@@ -116,7 +120,7 @@ class SnapshotRecord(BaseModel):
     sha256_before: str
     sha256_after: str | None = None
     snapshot_file_path: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     restored_at: datetime | None = None
 
 
@@ -129,8 +133,8 @@ class MemoryItem(BaseModel):
     confidence: float = 1.0
     enabled: bool = True
     tags: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class DAGNode(BaseModel):
@@ -155,7 +159,7 @@ class TaskDAG(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     user_id: str | None = None
     execution_metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     completed_at: datetime | None = None
 
 
@@ -195,7 +199,7 @@ class UserProfile(BaseModel):
     email: str
     full_name: str | None = None
     is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     preferences: UserPreferences | None = None
 
 
@@ -346,3 +350,142 @@ class SessionResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
+
+
+# =====================================================================
+# Phase 5: AI Gateway, Model Abstraction & Structured Agent Schemas
+# =====================================================================
+
+
+class LLMProviderType(str, Enum):
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GEMINI = "gemini"
+    OLLAMA = "ollama"
+    MOCK = "mock"
+
+
+class ModelUsage(BaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    latency_ms: float = 0.0
+
+
+class CompletionRequest(BaseModel):
+    prompt: str
+    system_prompt: str | None = None
+    model: str | None = None
+    temperature: float = 0.2
+    max_tokens: int = 2048
+    stop_sequences: list[str] = Field(default_factory=list)
+    provider: LLMProviderType | None = None
+    timeout_sec: float = 30.0
+
+    @property
+    def stop(self) -> list[str]:
+        return self.stop_sequences
+
+
+class CompletionResponse(BaseModel):
+    content: str
+    model: str
+    provider: str
+    usage: ModelUsage = Field(default_factory=ModelUsage)
+    finish_reason: str = "stop"
+
+
+class EmbeddingRequest(BaseModel):
+    texts: list[str]
+    model: str | None = None
+    provider: LLMProviderType | None = None
+
+
+class EmbeddingResponse(BaseModel):
+    embeddings: list[list[float]]
+    model: str
+    provider: str
+    total_tokens: int = 0
+
+
+class AgentIntent(BaseModel):
+    goal: str
+    primary_intent: str
+    domain: str = "general"
+    entities: list[str] = Field(default_factory=list)
+    risk_level: RiskLevel = RiskLevel.LOW
+    confidence: float = 1.0
+    requires_tools: bool = False
+
+
+class PlanStep(BaseModel):
+    id: str
+    name: str
+    agent: str = "orchestrator"
+    tool: str | None = None
+    input: dict[str, Any] = Field(default_factory=dict)
+    dependencies: list[str] = Field(default_factory=list)
+    risk_level: RiskLevel = RiskLevel.LOW
+
+
+class AgentPlan(BaseModel):
+    goal: str
+    rationale: str
+    estimated_complexity: str = "medium"
+    steps: list[PlanStep] = Field(default_factory=list)
+
+
+class AgentToolCall(BaseModel):
+    tool_name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    rationale: str
+    expected_output: str | None = None
+    reversibility: bool = False
+    risk_level: RiskLevel = RiskLevel.LOW
+
+
+class AgentToolResult(BaseModel):
+    tool_name: str
+    success: bool = True
+    data: dict[str, Any] | None = None
+    error: str | None = None
+    duration_ms: float = 0.0
+
+
+class AgentFinalResponse(BaseModel):
+    answer: str
+    summary: str | None = None
+    artifacts: list[str] = Field(default_factory=list)
+    follow_up_suggestions: list[str] = Field(default_factory=list)
+
+
+class PromptTemplate(BaseModel):
+    template_id: str
+    version: str
+    description: str
+    system_prompt: str
+    user_template: str
+    input_variables: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class GatewayTelemetry(BaseModel):
+    total_requests: int = 0
+    successful_requests: int = 0
+    failed_requests: int = 0
+    total_prompt_tokens: int = 0
+    total_completion_tokens: int = 0
+    total_tokens: int = 0
+    total_estimated_cost_usd: float = 0.0
+    total_cost_usd: float = 0.0
+    average_latency_ms: float = 0.0
+    active_providers: list[str] = Field(default_factory=list)
+    error_count: int = 0
+    retry_count: int = 0
+    retries_count: int = 0
+    fallback_count: int = 0
+    fallbacks_triggered: int = 0
+    errors_by_type: dict[str, int] = Field(default_factory=dict)
+    requests_by_model: dict[str, int] = Field(default_factory=dict)
+    requests_by_provider: dict[str, int] = Field(default_factory=dict)

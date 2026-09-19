@@ -309,4 +309,133 @@ export interface SessionRecord {
   updated_at: string;
 }
 
+// =====================================================================
+// Phase 5: AI Gateway & Structured Agent Contracts
+// =====================================================================
+
+export type LLMProviderType = 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'mock';
+
+export interface ModelUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  estimated_cost_usd: number;
+  latency_ms: number;
+}
+
+export interface CompletionRequest {
+  prompt: string;
+  system_prompt?: string;
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  stop_sequences?: string[];
+  provider?: LLMProviderType;
+  timeout_sec?: number;
+}
+
+export interface CompletionResponse {
+  content: string;
+  model: string;
+  provider: string;
+  usage: ModelUsage;
+  finish_reason: string;
+}
+
+export interface EmbeddingRequest {
+  texts: string[];
+  model?: string;
+  provider?: LLMProviderType;
+}
+
+export interface EmbeddingResponse {
+  embeddings: number[][];
+  model: string;
+  provider: string;
+  total_tokens: number;
+}
+
+export interface AgentIntent {
+  goal: string;
+  primary_intent: string;
+  domain: string;
+  entities: string[];
+  risk_level: RiskLevel;
+  confidence: number;
+  requires_tools: boolean;
+}
+
+export interface PlanStep {
+  id: string;
+  name: string;
+  agent: string;
+  tool?: string;
+  input: Record<string, unknown>;
+  dependencies: string[];
+  risk_level: RiskLevel;
+}
+
+export interface AgentPlan {
+  goal: string;
+  rationale: string;
+  estimated_complexity: string;
+  steps: PlanStep[];
+}
+
+export interface AgentToolCall {
+  tool_name: string;
+  arguments: Record<string, unknown>;
+  rationale: string;
+  expected_output?: string;
+  reversibility: boolean;
+  risk_level: RiskLevel;
+}
+
+export interface AgentToolResult {
+  tool_name: string;
+  success: boolean;
+  data?: Record<string, unknown>;
+  error?: string;
+  duration_ms: number;
+}
+
+export interface AgentFinalResponse {
+  answer: string;
+  summary?: string;
+  artifacts: string[];
+  follow_up_suggestions: string[];
+}
+
+export interface PromptTemplate {
+  template_id: string;
+  version: string;
+  description: string;
+  system_prompt: string;
+  user_template: string;
+  input_variables: string[];
+  created_at: string;
+}
+
+export interface GatewayTelemetry {
+  total_requests: number;
+  successful_requests?: number;
+  failed_requests?: number;
+  total_prompt_tokens?: number;
+  total_completion_tokens?: number;
+  total_tokens: number;
+  total_estimated_cost_usd?: number;
+  total_cost_usd: number;
+  average_latency_ms: number;
+  active_providers: string[];
+  error_count: number;
+  retry_count: number;
+  retries_count?: number;
+  fallback_count: number;
+  fallbacks_triggered?: number;
+  errors_by_type?: Record<string, number>;
+  requests_by_model?: Record<string, number>;
+  requests_by_provider?: Record<string, number>;
+}
+
+
 

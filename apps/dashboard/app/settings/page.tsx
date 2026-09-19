@@ -9,6 +9,7 @@ export default function SettingsPage() {
   const { user, isAuthenticated, updatePreferences } = useAuth();
 
   const [defaultProvider, setDefaultProvider] = useState("openai");
+  const [fallbackProvider, setFallbackProvider] = useState("mock");
   const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434");
   const [autoApproveLow, setAutoApproveLow] = useState(true);
   const [timezone, setTimezone] = useState("UTC");
@@ -154,6 +155,23 @@ export default function SettingsPage() {
                 <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
                 <option value="gemini">Google (Gemini 1.5 Pro / Flash)</option>
                 <option value="ollama">Local / Ollama (Offline Llama 3)</option>
+                <option value="mock">Deterministic Mock (Testing / Offline)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-400 mb-1">Cascading Fallback Provider</label>
+              <select
+                value={fallbackProvider}
+                onChange={(e) => setFallbackProvider(e.target.value)}
+                className="w-full p-2.5 rounded-lg bg-slate-900 border border-white/10 text-white outline-none focus:border-cyan-500"
+              >
+                <option value="none">None (Fail immediately on error)</option>
+                <option value="mock">Deterministic Mock (Fail-safe)</option>
+                <option value="ollama">Local / Ollama</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="gemini">Google Gemini</option>
               </select>
             </div>
 
