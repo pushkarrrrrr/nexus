@@ -5,7 +5,6 @@ and text embedding models via direct asynchronous HTTP.
 """
 
 import json
-import re
 import time
 from collections.abc import AsyncIterator
 from typing import Any, TypeVar
@@ -14,6 +13,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from packages.shared.nexus_shared.ai.base import EmbeddingProvider, LLMProvider
+from packages.shared.nexus_shared.ai.json_extractor import extract_json_from_text
 from packages.shared.nexus_shared.ai.pricing import calculate_cost
 from packages.shared.nexus_shared.errors import (
     ModelProviderError,
@@ -96,7 +96,8 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
                 "parts": [{"text": request.system_prompt}],
             }
 
-        url = f"{self.base_url}/models/{model_name}:generateContent"
+        clean_model = model_name.removeprefix("models/")
+        url = f"{self.base_url}/models/{clean_model}:generateContent"
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout_sec) as client:
@@ -160,7 +161,8 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
                 "parts": [{"text": request.system_prompt}],
             }
 
-        url = f"{self.base_url}/models/{model_name}:streamGenerateContent?alt=sse"
+        clean_model = model_name.removeprefix("models/")
+        url = f"{self.base_url}/models/{clean_model}:streamGenerateContent?alt=sse"
 
         try:
             async with (
@@ -179,6 +181,9 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
                     data_str = line[6:].strip()
                     try:
                         chunk = json.loads(data_str)
+                        if "error" in chunk:
+                            err_msg = chunk["error"].get("message", str(chunk["error"]))
+                            raise ModelProviderError(f"Gemini streaming error: {err_msg}")
                         candidates = chunk.get("candidates", [])
                         if candidates:
                             parts = candidates[0].get("content", {}).get("parts", [])
@@ -216,23 +221,18 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
         )
 
         resp = await self.complete(structured_req)
-        raw_text = resp.content.strip()
-
-        if raw_text.startswith("```"):
-            raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
-            raw_text = re.sub(r"\s*```$", "", raw_text)
-            raw_text = raw_text.strip()
+        clean_json = extract_json_from_text(resp.content)
 
         try:
-            parsed_data = response_schema.model_validate_json(raw_text)
+            parsed_data = response_schema.model_validate_json(clean_json)
         except ValidationError as val_err:
             raise StructuredOutputValidationError(
                 f"Failed to validate response against {response_schema.__name__}: {val_err}. "
-                f"Raw output: {raw_text[:200]}"
+                f"Raw output: {clean_json[:200]}"
             ) from val_err
         except Exception as parse_err:
             raise StructuredOutputValidationError(
-                f"Invalid JSON returned: {parse_err}. Raw output: {raw_text[:200]}"
+                f"Invalid JSON returned: {parse_err}. Raw output: {clean_json[:200]}"
             ) from parse_err
 
         return parsed_data, resp.usage

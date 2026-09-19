@@ -219,7 +219,10 @@ async def test_model_gateway_retry_on_transient_failure():
     telemetry = gateway.get_telemetry()
     assert telemetry.retries_count == 1
     assert telemetry.successful_requests == 1
-    assert telemetry.failed_requests == 1  # 1 transient failure recorded
+    assert telemetry.failed_requests == 0  # Request ultimately succeeded
+    assert (
+        telemetry.errors_by_type.get("rate_limit") == 1
+    )  # Transient failure recorded in error breakdown
 
 
 @pytest.mark.asyncio
@@ -509,3 +512,104 @@ async def test_api_unauthorized_access():
 
         telem_res = await client.get("/api/v1/ai/telemetry")
         assert telem_res.status_code == 401
+
+
+# ============================================================================
+# 7. Edge Cases & Micro-Bug Validations
+# ============================================================================
+
+
+def test_extract_json_from_text_edge_cases():
+    """Verify robust JSON extraction from messy LLM conversational output."""
+    from packages.shared.nexus_shared.ai.json_extractor import extract_json_from_text
+
+    # 1. Clean JSON
+    assert extract_json_from_text('{"a": 1}') == '{"a": 1}'
+
+    # 2. Markdown block
+    md = '```json\n{"status": "ok"}\n```'
+    assert extract_json_from_text(md) == '{"status": "ok"}'
+
+    # 3. Conversational preamble & postamble
+    preamble = 'Here is your requested output:\n\n```json\n{"goal": "run audit", "confidence": 0.99}\n```\nHope this helps!'
+    extracted = extract_json_from_text(preamble)
+    assert '"goal": "run audit"' in extracted
+    assert "Here is your requested" not in extracted
+
+    # 4. Outermost balanced braces without code fence
+    dirty = 'I analyzed the log and found: {"key": "value", "nested": {"num": 42}} in the dataset.'
+    assert extract_json_from_text(dirty) == '{"key": "value", "nested": {"num": 42}}'
+
+    # 5. Array JSON with preamble
+    array_text = 'Results are: [{"step": 1}, {"step": 2}] as follows.'
+    assert extract_json_from_text(array_text) == '[{"step": 1}, {"step": 2}]'
+
+    # 6. Escaped quotes inside JSON string
+    escaped = 'Result: {"msg": "hello \\"world\\"", "valid": true}'
+    assert extract_json_from_text(escaped) == '{"msg": "hello \\"world\\"", "valid": true}'
+
+
+def test_pricing_prefix_and_dated_model_matching():
+    """Verify that get_model_pricing handles models/ prefix and dated variants."""
+    # models/ prefix
+    pricing_gemini = get_model_pricing("models/gemini-1.5-pro")
+    assert pricing_gemini.input_per_million > 0
+    assert pricing_gemini.output_per_million > 0
+
+    # Dated variant prefix match
+    pricing_dated = get_model_pricing("gpt-4o-2024-08-06")
+    pricing_base = get_model_pricing("gpt-4o")
+    assert pricing_dated.input_per_million == pricing_base.input_per_million
+
+    # calculate_cost with models/ prefix
+    cost = calculate_cost("models/gemini-1.5-flash", prompt_tokens=1000, completion_tokens=1000)
+    assert cost > 0
+
+
+@pytest.mark.asyncio
+async def test_gateway_invalid_fallback_graceful_handling():
+    """Verify that setting fallback to 'none', '', 'null', or same provider does not crash."""
+    from packages.config.nexus_config import NexusSettings
+
+    settings = NexusSettings(DEFAULT_AI_PROVIDER="mock", DEFAULT_FALLBACK_PROVIDER="mock")
+    gw = ModelGateway(settings=settings)
+
+    req = CompletionRequest(prompt="Fallback test")
+
+    # String "none" should be ignored, not trigger Provider 'none' not found
+    resp1 = await gw.complete(req, provider_name="mock", fallback_provider="none")
+    assert resp1.provider == "mock"
+
+    # String "" or "null" should also be ignored
+    resp2 = await gw.complete(req, provider_name="mock", fallback_provider="")
+    assert resp2.provider == "mock"
+
+    # Self-reference fallback should be ignored
+    resp3 = await gw.complete(req, provider_name="mock", fallback_provider="mock")
+    assert resp3.provider == "mock"
+
+
+@pytest.mark.asyncio
+async def test_telemetry_metrics_integrity():
+    """Verify that telemetry total_requests equals successful_requests + failed_requests."""
+    from packages.config.nexus_config import NexusSettings
+
+    # Failure mode provider
+    failing_provider = MockProvider(failure_mode="server_error")
+    settings = NexusSettings(DEFAULT_AI_PROVIDER="mock", DEFAULT_FALLBACK_PROVIDER="mock")
+    gw = ModelGateway(settings=settings)
+    gw.register_llm_provider("failing", failing_provider)
+
+    # 1. Successful request
+    req = CompletionRequest(prompt="Success test")
+    await gw.complete(req, provider_name="mock", max_retries=0)
+
+    # 2. Permanent failed request with no fallback
+    with pytest.raises(ModelProviderError):
+        await gw.complete(req, provider_name="failing", fallback_provider="none", max_retries=1)
+
+    telem = gw.get_telemetry()
+    assert telem.total_requests == 2
+    assert telem.successful_requests == 1
+    assert telem.failed_requests == 1
+    assert telem.total_requests == telem.successful_requests + telem.failed_requests

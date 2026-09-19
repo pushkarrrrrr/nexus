@@ -4,10 +4,9 @@ Provides endpoints for model discovery, unified LLM completions, structured agen
 vector embeddings, prompt template inspection, and gateway telemetry.
 """
 
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
 
 from packages.shared.nexus_shared.ai.gateway import get_model_gateway
 from packages.shared.nexus_shared.ai.prompt_manager import get_prompt_manager
@@ -30,27 +29,12 @@ from packages.types.nexus_types.schemas import (
     EmbeddingResponse,
     GatewayTelemetry,
     PromptTemplate,
+    StructuredAIRequest,
+    StructuredAIResponse,
 )
 from services.api.nexus_api.auth.dependencies import get_current_user
 
 ai_router = APIRouter(prefix="/ai", tags=["ai"])
-
-
-class StructuredAIRequest(BaseModel):
-    prompt: str
-    schema_type: Literal["intent", "plan", "tool_call", "tool_result", "final_response"]
-    model: str | None = None
-    provider: str | None = None
-    fallback_provider: str | None = None
-    system_prompt: str | None = None
-    temperature: float = 0.1
-    max_tokens: int = 4096
-
-
-class StructuredAIResponse(BaseModel):
-    schema_type: str
-    data: dict[str, Any]
-    usage: dict[str, Any]
 
 
 @ai_router.get("/models")

@@ -5,7 +5,6 @@ DeepSeek, Qwen) and local embeddings (nomic-embed-text) via asynchronous HTTP.
 """
 
 import json
-import re
 import time
 from collections.abc import AsyncIterator
 from typing import Any, TypeVar
@@ -14,6 +13,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from packages.shared.nexus_shared.ai.base import EmbeddingProvider, LLMProvider
+from packages.shared.nexus_shared.ai.json_extractor import extract_json_from_text
 from packages.shared.nexus_shared.ai.pricing import calculate_cost
 from packages.shared.nexus_shared.errors import (
     ModelProviderError,
@@ -148,6 +148,8 @@ class OllamaProvider(LLMProvider, EmbeddingProvider):
                         continue
                     try:
                         chunk = json.loads(line)
+                        if "error" in chunk:
+                            raise ModelProviderError(f"Ollama streaming error: {chunk['error']}")
                         msg = chunk.get("message", {})
                         text = msg.get("content")
                         if text:
@@ -182,23 +184,18 @@ class OllamaProvider(LLMProvider, EmbeddingProvider):
         )
 
         resp = await self.complete(structured_req)
-        raw_text = resp.content.strip()
-
-        if raw_text.startswith("```"):
-            raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
-            raw_text = re.sub(r"\s*```$", "", raw_text)
-            raw_text = raw_text.strip()
+        clean_json = extract_json_from_text(resp.content)
 
         try:
-            parsed_data = response_schema.model_validate_json(raw_text)
+            parsed_data = response_schema.model_validate_json(clean_json)
         except ValidationError as val_err:
             raise StructuredOutputValidationError(
                 f"Failed to validate response against {response_schema.__name__}: {val_err}. "
-                f"Raw output: {raw_text[:200]}"
+                f"Raw output: {clean_json[:200]}"
             ) from val_err
         except Exception as parse_err:
             raise StructuredOutputValidationError(
-                f"Invalid JSON returned: {parse_err}. Raw output: {raw_text[:200]}"
+                f"Invalid JSON returned: {parse_err}. Raw output: {clean_json[:200]}"
             ) from parse_err
 
         return parsed_data, resp.usage
@@ -218,8 +215,8 @@ class OllamaProvider(LLMProvider, EmbeddingProvider):
                 if res.status_code == 200:
                     data = res.json()
                     embeddings = data.get("embeddings", [])
-                else:
-                    # Fallback to single /api/embeddings endpoint in sequence
+                elif res.status_code == 404:
+                    # Fallback to single /api/embeddings endpoint for older Ollama versions
                     embeddings = []
                     for text in request.texts:
                         single_res = await client.post(
@@ -228,6 +225,9 @@ class OllamaProvider(LLMProvider, EmbeddingProvider):
                         )
                         single_res.raise_for_status()
                         embeddings.append(single_res.json().get("embedding", []))
+                else:
+                    res.raise_for_status()
+                    embeddings = []
         except Exception as exc:
             raise self._map_http_error(exc) from exc
 

@@ -30,6 +30,7 @@ async def init_database() -> AsyncEngine:
 
     # If postgres target, test connection; fallback to SQLite if unreachable
     if "postgres" in target_url:
+        test_engine = None
         try:
             test_engine = create_async_engine(
                 target_url,
@@ -41,6 +42,8 @@ async def init_database() -> AsyncEngine:
             _engine = test_engine
             logger.info("connected_to_postgresql", url=target_url.split("@")[-1])
         except Exception as e:  # noqa: BLE001
+            if test_engine:
+                await test_engine.dispose()
             logger.warning(
                 "postgres_unreachable_falling_back_to_sqlite",
                 error=str(e),

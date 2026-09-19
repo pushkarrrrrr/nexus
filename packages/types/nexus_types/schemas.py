@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -489,3 +489,20 @@ class GatewayTelemetry(BaseModel):
     errors_by_type: dict[str, int] = Field(default_factory=dict)
     requests_by_model: dict[str, int] = Field(default_factory=dict)
     requests_by_provider: dict[str, int] = Field(default_factory=dict)
+
+
+class StructuredAIRequest(BaseModel):
+    prompt: str
+    schema_type: Literal["intent", "plan", "tool_call", "tool_result", "final_response"]
+    model: str | None = None
+    provider: str | None = None
+    fallback_provider: str | None = None
+    system_prompt: str | None = None
+    temperature: float = 0.1
+    max_tokens: int = 4096
+
+
+class StructuredAIResponse(BaseModel):
+    schema_type: str
+    data: dict[str, Any]
+    usage: dict[str, Any]

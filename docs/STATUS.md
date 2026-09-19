@@ -46,9 +46,19 @@ Last Updated: 2026-09-20
   - Enhanced Multi-Model Gateway card with Mock provider support and cascading fallback provider selection.
   - Next.js production build (`next build`) compiled 17/17 static routes successfully.
 - [x] **Comprehensive Automated Testing & Quality Gates**:
-  - 69/69 pytest unit and integration tests passing (`test_ai_gateway.py`, `test_state_machine.py`, `test_tasks.py`, `test_goals.py`, `test_auth.py`, `test_migrations.py`, `test_websocket.py`, `test_health.py`, `test_config.py`).
-  - 100% clean Python linting (`ruff check .`), formatting (`ruff format --check .`), and strict typechecking (`mypy` with zero issues in 49 source files).
+  - 73/73 pytest unit and integration tests passing (`test_ai_gateway.py`, `test_state_machine.py`, `test_tasks.py`, `test_goals.py`, `test_auth.py`, `test_migrations.py`, `test_websocket.py`, `test_health.py`, `test_config.py`).
+  - 100% clean Python linting (`ruff check .`), formatting (`ruff format --check .`), and strict typechecking (`mypy` with zero issues in 50 source files).
   - 100% clean TypeScript typechecking (`tsc --noEmit` across monorepo).
+- [x] **Deep Micro-Bug Audit & Hardening**:
+  - **Conversational JSON Extraction**: Built `extract_json_from_text` to handle conversational LLM preambles/postambles and unbalanced markdown fences.
+  - **Streaming Error Propagation**: Prevented silent error swallowing in SSE/ndjson streaming token iterators across OpenAI, Anthropic, Gemini, and Ollama providers.
+  - **Gemini URL Prefix Normalization**: Normalized model strings (`clean_model = model_name.removeprefix('models/')`) preventing 404s when model names contain `models/`.
+  - **Fallback Provider Validation**: Hardened gateway fallback routing against `'none'`, `'null'`, `''`, and self-referencing fallback strings.
+  - **Telemetry Metric Inconsistency**: Decoupled `_record_attempt_error` from `_record_failure` so that transient retries do not erroneously mark successful requests as failed.
+  - **Catalog Pricing Unification**: Aligned prefix matching and `models/` prefix stripping between `calculate_cost()` and `get_model_pricing()`.
+  - **Unclosed DB Engine on PostgreSQL Unreachable**: Added explicit `await test_engine.dispose()` when PostgreSQL is down and falling back to SQLite.
+  - **Monorepo Shared Types**: Exported `StructuredAIRequest` and `StructuredAIResponse` in `nexus_types` Python schemas and TypeScript definitions.
+  - **Settings Field Resolution**: Added `populate_by_name=True` to `NexusSettings` model configuration for clean programmatic and environment configuration.
 
 ---
 

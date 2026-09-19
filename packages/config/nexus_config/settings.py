@@ -7,6 +7,7 @@ class NexusSettings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     nexus_env: str = Field(default="development", alias="NEXUS_ENV")

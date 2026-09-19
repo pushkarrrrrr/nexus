@@ -5,7 +5,6 @@ Supports direct communication with OpenAI API and OpenAI-compatible endpoints
 """
 
 import json
-import re
 import time
 from collections.abc import AsyncIterator
 from typing import Any, TypeVar
@@ -14,6 +13,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from packages.shared.nexus_shared.ai.base import EmbeddingProvider, LLMProvider
+from packages.shared.nexus_shared.ai.json_extractor import extract_json_from_text
 from packages.shared.nexus_shared.ai.pricing import calculate_cost
 from packages.shared.nexus_shared.errors import (
     ModelProviderError,
@@ -161,6 +161,9 @@ class OpenAIProvider(LLMProvider, EmbeddingProvider):
                         break
                     try:
                         chunk = json.loads(data_str)
+                        if "error" in chunk:
+                            err_msg = chunk["error"].get("message", str(chunk["error"]))
+                            raise ModelProviderError(f"OpenAI streaming error: {err_msg}")
                         delta = chunk["choices"][0].get("delta", {})
                         text = delta.get("content")
                         if text:
@@ -195,24 +198,18 @@ class OpenAIProvider(LLMProvider, EmbeddingProvider):
         )
 
         resp = await self.complete(structured_req)
-        raw_text = resp.content.strip()
-
-        # Sanitize potential markdown fences
-        if raw_text.startswith("```"):
-            raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
-            raw_text = re.sub(r"\s*```$", "", raw_text)
-            raw_text = raw_text.strip()
+        clean_json = extract_json_from_text(resp.content)
 
         try:
-            parsed_data = response_schema.model_validate_json(raw_text)
+            parsed_data = response_schema.model_validate_json(clean_json)
         except ValidationError as val_err:
             raise StructuredOutputValidationError(
                 f"Failed to validate response against {response_schema.__name__}: {val_err}. "
-                f"Raw output: {raw_text[:200]}"
+                f"Raw output: {clean_json[:200]}"
             ) from val_err
         except Exception as parse_err:
             raise StructuredOutputValidationError(
-                f"Invalid JSON returned: {parse_err}. Raw output: {raw_text[:200]}"
+                f"Invalid JSON returned: {parse_err}. Raw output: {clean_json[:200]}"
             ) from parse_err
 
         return parsed_data, resp.usage

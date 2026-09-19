@@ -40,9 +40,20 @@ DEFAULT_FALLBACK_PRICE = ModelPrice(input_per_million=0.50, output_per_million=1
 
 
 def get_model_pricing(model: str) -> ModelPrice:
-    """Get the ModelPrice entry for a model name with fallback."""
+    """Get the ModelPrice entry for a model name with prefix matching and fallback."""
     clean_name = model.lower().strip()
-    return MODEL_PRICING_CATALOG.get(clean_name, DEFAULT_FALLBACK_PRICE)
+    clean_name = clean_name.removeprefix("models/")
+
+    price = MODEL_PRICING_CATALOG.get(clean_name)
+    if price:
+        return price
+
+    # Partial prefix matching (e.g., 'gpt-4o-2024-08-06' -> 'gpt-4o')
+    for key, catalog_price in MODEL_PRICING_CATALOG.items():
+        if clean_name.startswith(key):
+            return catalog_price
+
+    return DEFAULT_FALLBACK_PRICE
 
 
 def calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -56,19 +67,7 @@ def calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> fl
     Returns:
         Estimated cost in USD rounded to 6 decimal places.
     """
-    cleaned_model = model.lower().strip()
-    price = MODEL_PRICING_CATALOG.get(cleaned_model)
-
-    if not price:
-        # Partial prefix matching (e.g., 'gpt-4o-2024-08-06' -> 'gpt-4o')
-        for key, catalog_price in MODEL_PRICING_CATALOG.items():
-            if cleaned_model.startswith(key):
-                price = catalog_price
-                break
-
-    if not price:
-        price = DEFAULT_FALLBACK_PRICE
-
+    price = get_model_pricing(model)
     input_cost = (prompt_tokens / 1_000_000.0) * price.input_per_million
     output_cost = (completion_tokens / 1_000_000.0) * price.output_per_million
     total_cost = input_cost + output_cost

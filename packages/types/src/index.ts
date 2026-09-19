@@ -437,5 +437,19 @@ export interface GatewayTelemetry {
   requests_by_provider?: Record<string, number>;
 }
 
+export interface StructuredAIRequest {
+  prompt: string;
+  schema_type: "intent" | "plan" | "tool_call" | "tool_result" | "final_response";
+  model?: string;
+  provider?: string;
+  fallback_provider?: string;
+  system_prompt?: string;
+  temperature?: number;
+  max_tokens?: number;
+}
 
-
+export interface StructuredAIResponse {
+  schema_type: string;
+  data: Record<string, unknown>;
+  usage: Record<string, unknown>;
+}

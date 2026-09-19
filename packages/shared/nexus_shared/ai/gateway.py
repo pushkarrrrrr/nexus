@@ -175,7 +175,12 @@ class ModelGateway:
             )
         return providers_meta
 
-    def _record_error(self, err_type: str) -> None:
+    def _record_attempt_error(self, err_type: str) -> None:
+        """Record transient error on a specific attempt without failing the overall request."""
+        self._errors_by_type[err_type] = self._errors_by_type.get(err_type, 0) + 1
+
+    def _record_failure(self, err_type: str) -> None:
+        """Record an ultimate request failure after retries and fallbacks are exhausted."""
         self._failed_requests += 1
         self._errors_by_type[err_type] = self._errors_by_type.get(err_type, 0) + 1
 
@@ -191,6 +196,13 @@ class ModelGateway:
             self._requests_by_provider.get(provider_name, 0) + 1
         )
         self._requests_by_model[model_name] = self._requests_by_model.get(model_name, 0) + 1
+
+    def _should_trigger_fallback(self, fallback: str | None, primary_provider_name: str) -> bool:
+        """Verify if fallback is configured and distinct from primary."""
+        if not fallback:
+            return False
+        clean = fallback.lower().strip()
+        return clean not in ("none", "null", "", primary_provider_name.lower())
 
     async def _execute_with_retry(
         self,
@@ -208,7 +220,7 @@ class ModelGateway:
                 return await asyncio.wait_for(coro_fn(), timeout=timeout_sec)
             except TimeoutError as te:
                 attempt += 1
-                self._record_error("timeout")
+                self._record_attempt_error("timeout")
                 logger.warning(
                     "Provider %s timed out after %ss (attempt %s/%s)",
                     provider.provider_name,
@@ -226,7 +238,7 @@ class ModelGateway:
 
             except ModelRateLimitError as rle:
                 attempt += 1
-                self._record_error("rate_limit")
+                self._record_attempt_error("rate_limit")
                 logger.warning(
                     "Provider %s hit rate limit (attempt %s/%s): %s",
                     provider.provider_name,
@@ -242,7 +254,7 @@ class ModelGateway:
 
             except (ModelTimeoutError, httpx.TimeoutException) as te_err:
                 attempt += 1
-                self._record_error("timeout")
+                self._record_attempt_error("timeout")
                 if attempt > max_retries:
                     raise ModelTimeoutError(str(te_err)) from te_err
                 self._retries_count += 1
@@ -250,7 +262,7 @@ class ModelGateway:
                 backoff_sec *= 2.0
 
             except Exception as exc:
-                self._record_error(type(exc).__name__)
+                self._record_attempt_error(type(exc).__name__)
                 raise
 
     async def complete(
@@ -286,7 +298,8 @@ class ModelGateway:
                 primary_exc,
             )
 
-            if fallback and fallback.lower() != primary_provider.provider_name.lower():
+            if self._should_trigger_fallback(fallback, primary_provider.provider_name):
+                assert fallback is not None
                 try:
                     fallback_p = self.get_llm_provider(fallback)
                     self._fallbacks_triggered += 1
@@ -294,18 +307,18 @@ class ModelGateway:
                         "Cascading request to fallback provider '%s'",
                         fallback_p.provider_name,
                     )
-                    # When cascading to fallback, do not enforce another full retry cycle
                     resp = await asyncio.wait_for(fallback_p.complete(request), timeout=timeout)
                     self._record_success(resp.provider, resp.model, resp.usage)
                     return resp
                 except Exception as fb_exc:
-                    self._record_error("fallback_failure")
+                    self._record_failure("fallback_failure")
                     raise ModelProviderError(
                         f"Both primary provider '{primary_provider.provider_name}' "
                         f"and fallback provider '{fallback}' failed. "
                         f"Primary: {primary_exc}. Fallback: {fb_exc}"
                     ) from fb_exc
 
+            self._record_failure(type(primary_exc).__name__)
             raise
 
     async def stream_complete(
@@ -317,24 +330,27 @@ class ModelGateway:
         self._total_requests += 1
         provider = self.get_llm_provider(provider_name)
         start_time = time.perf_counter()
-        token_count = 0
+        full_text_pieces: list[str] = []
 
         try:
             async for token in provider.stream_complete(request):
-                token_count += 1
+                full_text_pieces.append(token)
                 yield token
 
+            full_text = "".join(full_text_pieces)
             latency_ms = (time.perf_counter() - start_time) * 1000.0
+            prompt_toks = len(request.prompt.split())
+            comp_toks = max(1, len(full_text.split()))
             usage = ModelUsage(
-                prompt_tokens=len(request.prompt.split()),
-                completion_tokens=token_count,
-                total_tokens=len(request.prompt.split()) + token_count,
+                prompt_tokens=prompt_toks,
+                completion_tokens=comp_toks,
+                total_tokens=prompt_toks + comp_toks,
                 latency_ms=round(latency_ms, 2),
             )
             self._record_success(provider.provider_name, request.model or "stream", usage)
 
         except Exception as exc:
-            self._record_error(type(exc).__name__)
+            self._record_failure(type(exc).__name__)
             raise
 
     async def complete_structured(
@@ -373,7 +389,8 @@ class ModelGateway:
                 exc,
             )
 
-            if fallback and fallback.lower() != primary_provider.provider_name.lower():
+            if self._should_trigger_fallback(fallback, primary_provider.provider_name):
+                assert fallback is not None
                 try:
                     fallback_p = self.get_llm_provider(fallback)
                     self._fallbacks_triggered += 1
@@ -390,12 +407,13 @@ class ModelGateway:
                     )
                     return parsed_data, usage
                 except Exception as fb_exc:
-                    self._record_error("fallback_failure")
+                    self._record_failure("fallback_failure")
                     raise ModelProviderError(
                         f"Both primary '{primary_provider.provider_name}' and fallback '{fallback}' "
                         f"failed structured validation: {fb_exc}"
                     ) from fb_exc
 
+            self._record_failure(type(exc).__name__)
             raise
 
     async def embed(
@@ -417,9 +435,9 @@ class ModelGateway:
             self._total_tokens += resp.total_tokens
             return resp
         except Exception as exc:
-            self._record_error(type(exc).__name__)
             fallback = fallback_provider or self.settings.default_fallback_provider
-            if fallback and fallback.lower() != primary_provider.provider_name.lower():
+            if self._should_trigger_fallback(fallback, primary_provider.provider_name):
+                assert fallback is not None
                 try:
                     fallback_p = self.get_embedding_provider(fallback)
                     self._fallbacks_triggered += 1
@@ -427,9 +445,12 @@ class ModelGateway:
                     self._successful_requests += 1
                     return resp
                 except Exception as fb_exc:
+                    self._record_failure(type(fb_exc).__name__)
                     raise ModelProviderError(
                         f"Embedding failed across providers: {fb_exc}"
                     ) from fb_exc
+
+            self._record_failure(type(exc).__name__)
             raise
 
     def get_telemetry(self) -> GatewayTelemetry:
