@@ -38,6 +38,10 @@ class RollbackFailedError(NexusError):
     """Raised when a state restoration operation fails."""
 
 
+class StateConflictError(NexusError):
+    """Raised when state drift is detected during action rollback."""
+
+
 class InvalidStateTransitionError(NexusError):
     """Raised when an invalid task or step state transition is attempted."""
 

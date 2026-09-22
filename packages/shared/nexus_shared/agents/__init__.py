@@ -1,6 +1,7 @@
 """NEXUS Specialized Multi-Agent Framework."""
 
 from packages.shared.nexus_shared.agents.base import AgentStepResult, BaseAgent
+from packages.shared.nexus_shared.agents.computer_agent import ComputerAgent
 from packages.shared.nexus_shared.agents.document_agent import DocumentAgent
 from packages.shared.nexus_shared.agents.orchestrator_agent import (
     OrchestratorAgent,
@@ -12,6 +13,7 @@ from packages.shared.nexus_shared.agents.research_agent import ResearchAgent
 __all__ = [
     "AgentStepResult",
     "BaseAgent",
+    "ComputerAgent",
     "DocumentAgent",
     "OrchestratorAgent",
     "PlanningAgent",

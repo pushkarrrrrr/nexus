@@ -8,6 +8,10 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "./scripts/dev.sh",
+    "dev:dashboard": "npm run --workspace=@nexus/dashboard dev",
+    "dev:ambient": "npm run --workspace=@nexus/ambient dev",
+    "dev:tauri": "npm --workspace=@nexus/ambient exec -- tauri dev",
     "typecheck": "npm run --workspaces --if-present typecheck",
     "lint": "npm run --workspaces --if-present lint"
   },

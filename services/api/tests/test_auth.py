@@ -315,7 +315,8 @@ async def test_user_registration_invalid_email_format():
 @pytest.mark.asyncio
 async def test_user_registration_whitespace_handling():
     transport = ASGITransport(app=app)
-    raw_email = "  NEXUS_OPERATOR_TEST@EXAMPLE.COM   "
+    unique_suffix = uuid.uuid4().hex[:6]
+    raw_email = f"  NEXUS_OPERATOR_{unique_suffix}@EXAMPLE.COM   "
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         payload = {
             "email": raw_email,
@@ -325,7 +326,7 @@ async def test_user_registration_whitespace_handling():
         res = await client.post("/api/v1/auth/register", json=payload)
         assert res.status_code == 201
         data = res.json()
-        assert data["user"]["email"] == "nexus_operator_test@example.com"
+        assert data["user"]["email"] == f"nexus_operator_{unique_suffix}@example.com"
         assert data["user"]["full_name"] is None
 
 

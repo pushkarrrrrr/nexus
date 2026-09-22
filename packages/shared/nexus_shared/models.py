@@ -18,6 +18,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
+    event,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
@@ -117,6 +119,18 @@ class UserModel(Base):
     )
     execution_plans: Mapped[list["ExecutionPlanModel"]] = relationship(
         "ExecutionPlanModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    permissions: Mapped[list["UserPermissionModel"]] = relationship(
+        "UserPermissionModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    approval_requests: Mapped[list["ApprovalRequestModel"]] = relationship(
+        "ApprovalRequestModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    action_snapshots: Mapped[list["ActionSnapshotModel"]] = relationship(
+        "ActionSnapshotModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    integrations: Mapped[list["ExternalIntegrationModel"]] = relationship(
+        "ExternalIntegrationModel", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -270,6 +284,12 @@ class TaskDAGModel(Base):
     plans: Mapped[list["ExecutionPlanModel"]] = relationship(
         "ExecutionPlanModel", back_populates="dag", cascade="all, delete-orphan"
     )
+    approval_requests: Mapped[list["ApprovalRequestModel"]] = relationship(
+        "ApprovalRequestModel", back_populates="task"
+    )
+    action_snapshots: Mapped[list["ActionSnapshotModel"]] = relationship(
+        "ActionSnapshotModel", back_populates="task"
+    )
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -402,27 +422,57 @@ class GoalModel(Base):
 class AuditLogModel(Base):
     __tablename__ = "audit_logs"
 
-    id = Column(String(64), primary_key=True, default=lambda: generate_uuid("evt"))
-    user_id = Column(
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("evt")
+    )
+    user_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    session_id = Column(String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
-    step_id = Column(String(64), nullable=True)
-    agent_name = Column(String(64), nullable=False)
-    tool_name = Column(String(64), nullable=False)
-    action_type = Column(String(32), nullable=False)
-    risk_level = Column(String(32), nullable=False)
-    inputs = Column(JSON, default=dict, nullable=False)
-    outputs = Column(JSON, nullable=True)
-    error = Column(Text, nullable=True)
-    policy_verdict = Column(String(32), nullable=False)
-    approval_id = Column(String(64), nullable=True)
-    snapshot_id = Column(String(64), nullable=True)
-    duration_ms = Column(Float, default=0.0, nullable=False)
-    undone_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    session_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("sessions.id", ondelete="CASCADE"), nullable=True
+    )
+    step_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    agent_name: Mapped[str] = mapped_column(String(64), default="system", nullable=False)
+    tool_name: Mapped[str] = mapped_column(String(64), default="policy_engine", nullable=False)
+    action_type: Mapped[str] = mapped_column(String(32), default="POLICY_CHECK", nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(32), default="LOW", nullable=False)
+    inputs: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    outputs: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    policy_verdict: Mapped[str] = mapped_column(String(32), default="ALLOWED", nullable=False)
+    approval_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    snapshot_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    duration_ms: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    undone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
 
-    session = relationship("SessionModel", back_populates="audit_logs")
+    # Phase 9: Policy & Trust additions
+    event_type: Mapped[str] = mapped_column(
+        String(32), default="POLICY_CHECK", nullable=False, index=True
+    )
+    capability_name: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="SUCCESS", nullable=False, index=True)
+    timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=True
+    )
+
+    session: Mapped["SessionModel | None"] = relationship(
+        "SessionModel", back_populates="audit_logs"
+    )
+
+
+@event.listens_for(AuditLogModel, "before_update")
+def _prevent_audit_log_update(mapper: Any, connection: Any, target: Any) -> None:
+    raise ValueError("AuditLog entries are immutable and cannot be updated.")
+
+
+@event.listens_for(AuditLogModel, "before_delete")
+def _prevent_audit_log_delete(mapper: Any, connection: Any, target: Any) -> None:
+    raise ValueError("AuditLog entries are append-only and cannot be deleted.")
 
 
 class FileSnapshotModel(Base):
@@ -730,3 +780,241 @@ class PlanStepModel(Base):
             self.retry_count = 0
         if getattr(self, "max_retries", None) is None:
             self.max_retries = 2
+
+
+class CapabilityModel(Base):
+    __tablename__ = "capabilities"
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("cap")
+    )
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    default_risk_level: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("cap")
+        if getattr(self, "is_active", None) is None:
+            self.is_active = True
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+        if getattr(self, "updated_at", None) is None:
+            self.updated_at = utcnow()
+
+
+class UserPermissionModel(Base):
+    __tablename__ = "user_permissions"
+    __table_args__ = (Index("ix_user_permissions_user_cap", "user_id", "capability_name"),)
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("perm")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    capability_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    scope: Mapped[str] = mapped_column(String(32), nullable=False)  # ONE_TIME, SESSION, STANDING
+    resource_pattern: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="permissions")
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("perm")
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+
+
+class ApprovalRequestModel(Base):
+    __tablename__ = "approval_requests"
+    __table_args__ = (Index("ix_approval_requests_user_status", "user_id", "status"),)
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("appr")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    task_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("task_dags.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    step_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    capability_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    action_category: Mapped[str] = mapped_column(String(32), nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    affected_resources: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="PENDING", nullable=False, index=True
+    )  # PENDING, APPROVED, DENIED, EXPIRED
+    approved_scope: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    snapshot_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("action_snapshots.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    diff_preview: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_reversible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="approval_requests")
+    task: Mapped["TaskDAGModel | None"] = relationship(
+        "TaskDAGModel", back_populates="approval_requests"
+    )
+    snapshot: Mapped["ActionSnapshotModel | None"] = relationship(
+        "ActionSnapshotModel", back_populates="approval_requests"
+    )
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("appr")
+        if getattr(self, "status", None) is None:
+            self.status = "PENDING"
+        if getattr(self, "is_reversible", None) is None:
+            self.is_reversible = False
+        if getattr(self, "affected_resources", None) is None:
+            self.affected_resources = []
+        if getattr(self, "parameters", None) is None:
+            self.parameters = {}
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+
+
+class ActionSnapshotModel(Base):
+    __tablename__ = "action_snapshots"
+    __table_args__ = (Index("ix_action_snapshots_user_status", "user_id", "status"),)
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("act")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    task_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("task_dags.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    step_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    capability_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    action_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    is_reversible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    target_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    before_state: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    after_state: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    diff_patch: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(32), default="CAPTURED", nullable=False, index=True
+    )  # CAPTURED, APPLIED, REVERTED, FAILED
+    reverted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="action_snapshots")
+    task: Mapped["TaskDAGModel | None"] = relationship(
+        "TaskDAGModel", back_populates="action_snapshots"
+    )
+    approval_requests: Mapped[list["ApprovalRequestModel"]] = relationship(
+        "ApprovalRequestModel", back_populates="snapshot"
+    )
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("act")
+        if getattr(self, "status", None) is None:
+            self.status = "CAPTURED"
+        if getattr(self, "is_reversible", None) is None:
+            self.is_reversible = True
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+
+
+class ExternalIntegrationModel(Base):
+    __tablename__ = "user_integrations"
+    __table_args__ = (
+        UniqueConstraint("user_id", "provider", name="uq_user_integrations_user_provider"),
+        Index("ix_user_integrations_user_id", "user_id"),
+        Index("ix_user_integrations_provider", "provider"),
+        Index("ix_user_integrations_status", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("intg")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    credentials_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="DISCONNECTED", nullable=False
+    )  # ACTIVE, DISCONNECTED, EXPIRED
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="integrations")
+
+    @property
+    def encrypted_credentials(self) -> str | None:
+        return self.credentials_encrypted
+
+    @encrypted_credentials.setter
+    def encrypted_credentials(self, value: str | None) -> None:
+        self.credentials_encrypted = value
+
+    @property
+    def integration_metadata(self) -> dict[str, Any]:
+        return self.config
+
+    @integration_metadata.setter
+    def integration_metadata(self, value: dict[str, Any]) -> None:
+        self.config = value
+
+    def __init__(self, **kwargs: Any) -> None:
+        if "encrypted_credentials" in kwargs and "credentials_encrypted" not in kwargs:
+            kwargs["credentials_encrypted"] = kwargs.pop("encrypted_credentials")
+        if "metadata" in kwargs and "config" not in kwargs:
+            kwargs["config"] = kwargs.pop("metadata")
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("intg")
+        if getattr(self, "status", None) is None:
+            self.status = "DISCONNECTED"
+        if getattr(self, "is_enabled", None) is None:
+            self.is_enabled = True
+        if getattr(self, "config", None) is None:
+            self.config = {}
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+        if getattr(self, "updated_at", None) is None:
+            self.updated_at = utcnow()
+

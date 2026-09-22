@@ -1,60 +1,69 @@
 # NEXUS Project Status & Phase Log
 
-## Current Status: Phase 8 — Agent Orchestrator + Planning (COMPLETED)
+### Current Status: Phase 13 — Browser Automation & External Integrations (COMPLETED)
 
-Last Updated: 2026-09-20
+Last Updated: 2026-09-21
 
 ---
 
-## 1. Completed Work in Phase 8
-- [x] **Specialized Agent Framework (`packages/shared/nexus_shared/agents/`)**:
-  - `BaseAgent`: Strict contract, typing, and timing telemetry (`agent_step_started`, `agent_step_completed`).
-  - `PlanningAgent`: Goal decomposition into ordered, verifiable `PlanStep`s via `ModelGateway.complete_structured(AgentPlan)` with structured recovery `replan()`.
-  - `ResearchAgent`: Grounded knowledge retrieval combining Vector search and Knowledge Graph traversal via `RAGQueryEngine`.
-  - `DocumentAgent`: Document catalog and chunk metadata analysis.
-  - `OrchestratorAgent`: Central supervisor coordinating step dispatch, DAG dependency resolution, step retries, recovery replanning, and synthesis.
-- [x] **Relational Schema & Migration (`ExecutionPlanModel`, `PlanStepModel`)**:
-  - `execution_plans`: `id`, `task_id`, `user_id`, `goal`, `status`, `current_step_index`, `replan_count`, `max_replans`, `plan_metadata`, timestamps.
-  - `plan_steps`: `id`, `plan_id`, `index`, `description`, `assigned_agent`, `required_tools`, `dependencies` (JSON list), `status`, `retry_count`, `max_retries`, `result_payload`, `error_message`, timestamps.
-  - Composite indexes for rapid queries: `(user_id, status)`, `(task_id, created_at)`, `(plan_id, index)`.
-  - Alembic migration `006_agent_plans.py` created, validated, and applied.
-- [x] **3 Critical Engineering Guardrails Implemented**:
-  1. *Session & Transaction Hygiene*: Clean commit/refresh boundaries around external LLM and agent I/O calls. Step status transitions are immediately visible to WebSockets and concurrent queries.
-  2. *Dual-Point Cancellation Checks*: Explicit checks performed immediately before dispatching an agent step AND immediately after execution, halting cleanly and skipping remaining steps.
-  3. *Explicit Dependency Resolution*: Evaluates `step.dependencies` ensuring steps only transition to `in_progress` if all upstream dependency steps have status `completed`. If an upstream step fails or is skipped, downstream dependent steps are automatically skipped.
-- [x] **Failure Recovery & Replanning**:
-  - Step-level retries with configurable `max_retries`.
-  - Automatic replanning upon step failure capped at `max_replans = 3`. Recovery steps inherit upstream dependencies so they can execute cleanly.
-  - Automatic skipping of remaining pending steps if replan limit is exceeded.
-- [x] **REST API Endpoints (`/api/v1/agents`)**:
-  - `GET /api/v1/agents/roster`: Live roster of specialized agents, capabilities, and assigned models.
-  - `POST /api/v1/agents/execute`: Synchronous or asynchronous autonomous goal execution.
-  - `GET /api/v1/agents/plans/{task_id}`: Fetch execution plan and ordered step checklist for a task.
-  - `POST /api/v1/agents/plans/{plan_id}/replan`: Manual replan trigger.
-- [x] **Dashboard Autonomous Execution Studio (`apps/dashboard/app/agents/page.tsx` & `/tasks`)**:
-  - Live Agent Roster with status indicators, capabilities, and system prompt previews.
-  - Autonomous Goal Execution Studio with real-time goal dispatch, step checklist, agent avatars, and structured message feed.
-  - Interactive Plan tab on `/tasks` displaying structured execution plans and live step status.
-- [x] **Quality Gates & Test Suite**:
-  - 99/99 pytest tests passing across the entire repository (`test_agent_orchestrator.py` + all prior suites).
-  - 100% clean linting (`ruff check .`), formatting (`ruff format --check .`), and strict typechecking (`mypy` with zero issues in 73 source files).
-  - 100% clean TypeScript typechecking (`tsc --noEmit` across monorepo) and Next.js production build (18/18 routes compiled).
+## 1. Completed Work in Phase 13
+- [x] **Architectural Foundations & Encrypted Credential Storage**:
+  - `BaseConnector` abstract lifecycle interface (`connect`, `disconnect`, `health_check`, `register_tools`) in `packages/shared/nexus_shared/integrations/base.py`.
+  - AES-256-GCM authenticated encryption/decryption module in `packages/shared/nexus_shared/integrations/crypto.py` reading `INTEGRATION_ENCRYPTION_KEY`.
+  - `ExternalIntegrationModel` mapped to `user_integrations` table in `packages/shared/nexus_shared/models.py`.
+  - Synchronized Alembic revision `009_external_integrations.py` supporting PostgreSQL and SQLite fallback.
+- [x] **Browser Connector with Persistent Sessions (Playwright)**:
+  - `BrowserSessionManager` in `packages/shared/nexus_shared/integrations/browser/session.py` with Chromium persistent context (`user_data_dir=~/.nexus/browser_profiles/{user_id}`) retaining Cookies, LocalStorage, and IndexedDB across invocations.
+  - Enforced `0700` POSIX directory isolation per user profile.
+  - Background 10-minute idle context reaper releasing Chromium's `SingletonLock` while preserving disk state.
+  - Strict SSRF hardening in `packages/shared/nexus_shared/integrations/browser/ssrf.py` blocking loopback, RFC 1918 private subnets, cloud metadata (169.254.169.254), and forbidden URL schemes.
+  - Browser capability tools: `browser.open_login_session` (headless=False for manual 2FA/QR scanning), `browser.navigate`, `browser.get_snapshot`, `browser.click` (HIGH risk), and `browser.type` (HIGH risk).
+- [x] **External API Connectors (GitHub & Google Workspace)**:
+  - `GitHubConnector` (`github.list_issues`, `github.read_file`, `github.create_issue`, `github.create_pr`).
+  - `GoogleWorkspaceConnector` (`google.list_calendar_events`, `google.create_calendar_event`, `google.search_gmail`, `google.send_email`).
+- [x] **Policy Engine Gating & Safety Invariants**:
+  - Mutating actions (`browser.click`, `browser.type`, `github.create_issue`, `github.create_pr`, `google.create_calendar_event`, `google.send_email`) strictly registered as `RiskLevel.HIGH`, requiring human-in-the-loop approval.
+  - Automated `ApprovalRequestModel` generation and DAG execution pausing prior to mutating execution.
+- [x] **FastAPI Endpoints & Next.js Cockpit**:
+  - Full REST endpoints at `/api/v1/integrations` (list, connect, disconnect, health, launch login session).
+  - Next.js dashboard cockpit at `/integrations` with real-time status cards, masked credential inputs, and "Launch Persistent Login Session" action.
+  - Integrated into Sidebar and Tools view.
+- [x] **Native macOS Application Control & Accessibility Engine**:
+  - `MacOSConnector` implementing `BaseConnector` lifecycle interface in `packages/shared/nexus_shared/integrations/macos/connector.py`.
+  - Pure Python `ctypes` bindings to macOS `ApplicationServices` (`AXIsProcessTrusted`) and `CoreGraphics` (`CGPreflightScreenCaptureAccess`) for zero-dependency TCC permission checking and diagnostics with System Settings deep-links.
+  - Dual Execution Engine in `packages/shared/nexus_shared/integrations/macos/engine.py`:
+    - Async JXA / AppleScript engine via `osascript -l JavaScript` for `AXUIElement` hierarchy traversal, app activation, and `AXPress` element clicking.
+    - Synthetic CoreGraphics / Quartz event synthesis fallback (`CGEventCreateMouseEvent`, `CGEventCreateKeyboardEvent`, `CGEventKeyboardSetUnicodeString`, `CGEventSetFlags`, `CGEventPost`).
+    - Window frame capture via `screencapture -l<window_id> -o -C` with `CGWindowListCopyWindowInfo` resolution.
+  - 7 new tools under `macos.*`: `macos.list_running_apps`, `macos.focus_app`, `macos.inspect_ui`, `macos.capture_window`, `macos.click_element` (HIGH), `macos.type_text` (HIGH), `macos.send_shortcut` (HIGH).
+  - Strict Policy Engine safeguards: `SYSTEM_CONTROL` action category with `RiskLevel.HIGH` on all mutating desktop actions requiring explicit `ApprovalRequestModel`.
+  - REST endpoints at `GET /api/v1/integrations/macos/apps` and `GET /api/v1/integrations/macos/permissions`.
+  - Next.js dashboard card with real-time TCC status badges and running desktop apps inspector.
+- [x] **Verification & Quality Gates**:
+  - **169/169 tests passing** (17 new tests in `services/api/tests/test_macos_connector.py`).
+  - 100% clean type checking (`mypy` across backend, `tsc --noEmit` across all workspaces).
+  - Successful production Next.js build (`19/19` static routes compiled).
 
 ---
 
 ## 2. Completed Work in Prior Phases
-- [x] **Phase 0 — Project Constitution**: Core architectural documents (`AGENTS.md`, `ARCHITECTURE.md`, `PRODUCT_SPEC.md`, `SECURITY_MODEL.md`, `ROADMAP.md`, `DATABASE_ENTITIES.md`, `API_BOUNDARIES.md`).
-- [x] **Phase 1 — Monorepo Foundation**: Monorepo scaffolding, shared packages, FastAPI backend, background worker, Alembic migration 001, Docker Compose.
-- [x] **Phase 2 — NEXUS Design System + Dashboard**: Reusable UI component suite, full 12-page operating console shell, static compilation of all routes.
-- [x] **Phase 3 — Identity + User Context**: Authentication engine, bcrypt hashing, JWT tokens, tenant isolation, preferences, and security audit trail.
-- [x] **Phase 4 — NEXUS Core + Task System**: Request/session model, topological task DAGs, subtask steps, 8-state deterministic state machine, cascading cancellation, timeline events, and WebSocket bus.
-- [x] **Phase 5 — AI Gateway**: Unified multi-provider LLM/embedding layer, structured output validation, token/cost telemetry, and fallback chains.
-- [x] **Phase 6 — Memory + Personal Knowledge + RAG**: 5-class memory taxonomy, asynchronous ingestion, dual-dialect vector store, and grounded RAG.
-- [x] **Phase 7 — Knowledge Graph**: Graph storage, cycle-safe dual-dialect recursive CTE traversal, automated relation extraction, hybrid graph-RAG retrieval, and interactive force-directed visualizer.
+- [x] **Phase 12 — Ambient NEXUS Desktop Layer**: Native Tauri Rust core, global shortcut, transparent frameless HUD, real-time WebSocket bridge.
+- [x] **Phase 11 — Tool System + Controlled Computer Actions**: OS abstraction, MacOSAdapter, standard tools, CWD validation, buffer caps.
+- [x] **Phase 10 — Reversible Actions + Diff Approval**: Action classification, diff preview, state drift detection, size caps, and one-click rollback.
+- [x] **Phase 9 — Policy Engine + Trust Model**: Capability catalog, risk tiers, human-in-the-loop approvals, audit ledger.
+- [x] **Phase 8 — Agent Orchestrator + Planning**: Specialized agent framework, planning/replanning recovery, execution plans.
+- [x] **Phase 7 — Knowledge Graph**: Graph storage, recursive CTE traversal, hybrid graph-RAG retrieval.
+- [x] **Phase 6 — Memory + Personal Knowledge + RAG**: 5-class memory taxonomy, ingestion, vector store, grounded RAG.
+- [x] **Phase 5 — AI Gateway**: Unified multi-provider LLM layer, structured output, fallback chains.
+- [x] **Phase 4 — NEXUS Core + Task System**: Task DAGs, state machine, timeline events, WebSocket bus.
+- [x] **Phase 3 — Identity + User Context**: Auth engine, JWT tokens, tenant isolation.
+- [x] **Phase 2 — Design System + Dashboard**: Component suite, operating console shell.
+- [x] **Phase 1 — Monorepo Foundation**: FastAPI backend, background worker, Alembic migration 001.
+- [x] **Phase 0 — Project Constitution**: Core architectural rules (`AGENTS.md`).and resumable approval metadata.
 
 ---
 
-## 3. Known Limitations & Prerequisites for Phase 9
-- Unrestricted computer control, OS filesystem mutating operations, shell tools, and browser automation remain strictly prohibited at this stage.
-- Phase 9 will introduce the Sandboxed Tool Registry, PolicyEngine with granular risk tiers (LOW/MEDIUM/HIGH/CRITICAL), grants cache, and Human-in-the-Loop (HITL) approval locks.
-- In accordance with Section 4 of the NEXUS Engineering Constitution, execution is paused after Phase 8. Awaiting user review and approval before proceeding to Phase 9.
+## 3. Next Phase: Phase 13
+- Phase 13: Autonomous Self-Correction, Dynamic Replanning & Error Recovery.
+
+

@@ -290,3 +290,173 @@ User Goal / Autonomous Task Request
          ├── Autonomous Goal Execution Studio with real-time step checklist & message feed
          └── Dedicated Plan tab on /tasks showing structured execution steps
 ```
+
+---
+
+## 10. Policy Engine, Capability Registry & Trust Model Architecture
+
+```
+Agent Action Request (Tool Invocations / Shell Executions / Filesystem Ops)
+   │
+   ├── [Canonical Path Normalization]
+   │     └── Resolves target path (`Path.resolve()`) to eliminate traversal vectors (`../`)
+   │
+   ├── [Capability Registry]
+   │     ├── Static & Dynamic Catalog of System Capabilities
+   │     └── Categorized by Action Type (READ, WRITE, MODIFY, DELETE, EXECUTE, EXTERNAL_ACTION)
+   │     └── Baseline Risk Tiers (LOW, MEDIUM, HIGH, CRITICAL)
+   │
+   ├── [Policy Evaluation Pipeline]
+   │     ├── Active User Permission Check (Resource pattern glob/fnmatch evaluation)
+   │     ├── Atomic TOCTOU Grant Consumption: Consumes single-use grants inside isolated transaction
+   │     ├── Risk Assessment: Automatically requires human-in-the-loop (HITL) approval for non-exempt actions
+   │     └── Evaluation Verdict: ALLOWED | REQUIRES_APPROVAL | BLOCKED
+   │
+   ├── [Human-in-the-Loop Approval & Permission Scopes]
+   │     ├── ApprovalRequestModel: (id, user_id, capability_name, affected_resources, risk_level, status, diff_preview)
+   │     ├── Granular Scopes: ONE_TIME | SESSION (TTL-bound) | STANDING (strictly LOW-risk READ operations)
+   │     └── Inline Expiration Validation: Evaluates timestamp at resolution time to prevent stale approvals
+   │
+   └── [Immutable Append-Only Audit Ledger]
+         ├── Tamper-Resistant Ledger: Intercepts updates/deletions at SQLAlchemy ORM layer
+         ├── Comprehensive Event Trail: Policy checks, approvals, revocations, and rollback actions
+         └── Multi-dimensional Query Filtering: Filter by actor, tool, risk tier, status, or date
+```
+
+---
+
+## 11. Reversible Actions, Side-Effect Journaling & Diff Approval Architecture
+
+```
+Mutating Action Pipeline (Phase 10)
+   │
+   ├── [Explicit Reversibility Labeling & Classification]
+   │     ├── Reversible Actions: FILE_CREATE, FILE_MODIFY, FILE_DELETE, FILE_MOVE
+   │     └── Non-Reversible Operations: COMMAND_EXECUTE, EXTERNAL_MUTATION, NETWORK_REQUEST
+   │
+   ├── [Pre-Execution State Capture & Filesystem Safeguards]
+   │     ├── Safeguard 1: State Drift Detection
+   │     │     └── Computes current target SHA-256 before rollback; aborts with HTTP 409 Conflict if drift detected
+   │     ├── Safeguard 2: Size Limit & Binary Handling
+   │     │     └── Enforces 1MB inline content cap (MAX_INLINE_SIZE); captures metadata/hashes for binary/oversized files
+   │     └── Safeguard 3: Safe Directory Hierarchy Recreation
+   │           └── Recursively recreates missing parent directories (`mkdir(parents=True, exist_ok=True)`) on restore
+   │
+   ├── [Unified Git-Style Diff Generation]
+   │     ├── Git-style patch generation (`difflib.unified_diff`) showing exact lines added (+) and removed (-)
+   │     └── Surfaced in human-in-the-loop approval modal before execution confirmation
+   │
+   ├── [Action Snapshot Storage (`action_snapshots`)]
+   │     ├── Fields: id, user_id, task_id, step_id, capability_name, action_type, is_reversible
+   │     ├── States: before_state (JSON), after_state (JSON), diff_patch (text), status (CAPTURED -> APPLIED -> REVERTED)
+   │     └── Full Tenant Isolation: Query & rollback scoped strictly by authenticated user ID
+   │
+   ├── [Rollback Mechanics & Revert Execution]
+   │     ├── `POST /api/v1/reversal/snapshots/{id}/revert`
+   │     ├── Reverses mutations: deletes created files, restores modified files, recreates deleted hierarchies
+   │     ├── Drift override: Supports explicit `force=True` parameter to bypass intermediate modification conflicts
+   │     └── Append-Only Audit Logging: Registers `ACTION_REVERTED` event in immutable ledger
+   │
+   └── [Diff Approval & Rollback Cockpit UX]
+         ├── Approvals Cockpit: Live diff preview and reversibility badge (`Reversible [Undo supported]` vs `Non-Reversible`)
+         └── Audit Cockpit: Reversible Snapshots tab with interactive Revert Modal and one-click rollback trigger
+```
+
+---
+
+## 12. Tool System, Controlled Computer Actions & OS Adapter Architecture
+
+```
+Agent Execution Request (e.g. PlanningStep with required_tools)
+   │
+   ├── [Tool Registry (`packages/shared/nexus_shared/tools/`)]
+   │     ├── Central Tool Registry (`ToolRegistry` singleton)
+   │     ├── Schema Reflection: Generates OpenAI-compatible function calling schemas (`get_schemas_for_llm()`)
+   │     └── Registered Standard Tools:
+   │           ├── Filesystem: `filesystem.read`, `filesystem.write`, `filesystem.modify`, `filesystem.delete`, `filesystem.list_dir`
+   │           ├── Terminal: `terminal.execute` (allowlist-restricted subprocess runner)
+   │           └── Applications: `applications.open`, `browser.open_url`
+   │
+   ├── [Unbypassable Tool Execution Pipeline (`BaseTool.execute()`)]
+   │     ├── 1. Input Schema Validation (Pydantic v2 strict models)
+   │     ├── 2. Policy Evaluation (PolicyEngine check on required capability & normalized target)
+   │     │        └── If REQUIRES_APPROVAL: halts tool, registers ApprovalRequest, captures pre-snapshot diff
+   │     ├── 3. Pre-execution State Capture (SnapshotManager for reversible operations)
+   │     ├── 4. Controlled OS Execution (ComputerControlAdapter implementation)
+   │     ├── 5. Post-execution Snapshot Finalization (after-state recording & diff patch generation)
+   │     └── 6. Audit Logging (Immutable audit event recorded with duration & output metadata)
+   │
+   ├── [3 Mandatory Computer Action Safeguards]
+   │     ├── Safeguard 1: Workspace / CWD Path Validation
+   │     │     └── `is_protected_directory()` validates and normalizes `cwd`; denies execution if targeting
+   │     │         `/`, `/etc`, `/var`, `/System`, `/private`, `/bin`, `/sbin`, `~/.ssh`, or `~/.gnupg`
+   │     ├── Safeguard 2: Stdout/Stderr Buffer Caps
+   │     │     └── Strict 100 KB buffer limit (`MAX_COMMAND_OUTPUT_BYTES = 100 * 1024`); truncates output
+   │     │         and appends `\n[Output truncated at 100 KB]` to eliminate memory exhaustion & log bloat
+   │     └── Safeguard 3: Resumable Step Metadata for Approvals
+   │           └── When a tool halts with `REQUIRES_APPROVAL`, target tool name, arguments, and `approval_id`
+   │               are cleanly serialized into `PlanStepModel.result_payload` and the step is paused in
+   │               `awaiting_approval` state, resuming execution immediately upon approval resolution
+   │
+   ├── [OS Control Abstraction Layer (`packages/shared/nexus_shared/computer/`)]
+   │     ├── `ComputerControlAdapter` ABC: Uniform interface for all OS-level actions
+   │     ├── `MacOSAdapter`: Concrete implementation for macOS environments
+   │     │     ├── Applications: `/usr/bin/open -a <app_name>` with sanitized name validation
+   │     │     ├── Web Browser: `/usr/bin/open <url>` with strict HTTP/HTTPS scheme enforcement
+   │     │     ├── Filesystem: Sandboxed, async file read/write/move/delete/list via aiofiles & pathlib
+   │     │     └── Subprocess: Asynchronous process execution with timeouts and output stream capping
+   │     └── `WindowsAdapter` & `LinuxAdapter`: Stubs raising typed `NotImplementedError`
+   │
+   ├── [ComputerAgent Integration]
+   │     ├── Domain agent specialized for tool invocation and OS interactions
+   │     ├── Dispatches plan steps through `ToolRegistry` with user database session
+   │     └── Automatically propagates approval pauses to the Orchestrator DAG state machine
+   │
+   ├── [Backend REST API (`/api/v1/tools`)]
+   │     ├── `GET /api/v1/tools`: List all registered tools with capability requirements & risk tiers
+   │     ├── `GET /api/v1/tools/{name}`: Detailed tool manifest and parameter schemas
+   │     └── `POST /api/v1/tools/{name}/execute`: Execute tool with authenticated user session & policy check
+   │
+    └── [Dashboard Tool Explorer (`/tools`)]
+          ├── Live searchable catalog of available system tools
+          ├── Capability badges, risk tiers, and reversibility indicators
+          └── Interactive parameter inspection drawer with JSON Schema property documentation
+```
+
+---
+
+## 13. Ambient Desktop Layer & Native HUD Architecture (Phase 12)
+
+```
+Native macOS Host Environment
+   │
+   ├── [Native Tauri Rust Core (`apps/ambient/src-tauri/`)]
+   │     ├── Global Shortcut Manager: `CommandOrControl+Shift+Space` global toggle
+   │     ├── Frameless, transparent floating capsule window centered in upper-third of screen
+   │     ├── Non-Blocking Native Context Invocations:
+   │     │     ├── `get_frontmost_app()`: Active app name + window title via AppleScript with 500ms timeout
+   │     │     └── `get_selected_text()`: Explicit opt-in selection capture with privacy boundary
+   │     └── Granular Escape & Dismissal Behavior:
+   │           ├── Idle / Result: Immediately hides HUD window
+   │           ├── Approval: Treats Escape as an explicit action denial with fallback
+   │           └── Executing: Hides HUD window while background execution continues uninterrupted
+   │
+   ├── [Ambient HUD Frontend (`apps/ambient/src/`)]
+   │     ├── CommandCapsule: Raycast/Spotlight inspired unified natural-language search & prompt bar
+   │     ├── ContextPill: Displays active app name, window title, and selection state with attach toggle
+   │     ├── Dynamic State Views:
+   │     │     ├── PlanningView: Real-time checklist of DAG steps decomposed by PlanningAgent
+   │     │     ├── ToolActivityPulse: Glowing pulse indicator of running tool execution
+   │     │     ├── InlineApprovalModal: Inline diff preview with keyboard-accessible [Approve Once] / [Deny]
+   │     │     └── ResultView: Formatted markdown output, copy action (Cmd+Enter), follow-up prompt
+   │     └── Webview Transparency & Styling Invariants:
+   │           └── Strict transparent background on html, body, and #root with soft shadow padding
+   │
+   ├── [Real-Time Streaming Bridge]
+   │     ├── WebSocket: Live connection to `/ws/nexus?client_surface=ambient`
+   │     ├── REST API: Task dispatch tagged with `X-Client-Surface: ambient` header
+   │     └── Full Synchronization: Actions stream to central Task DAG and immutable Audit Ledger
+   │
+   └── [System Status & Surface Discovery (`/api/v1/system/status`)]
+         └── Reports `phase: "phase_12_ambient_desktop"` and `supported_surfaces: ["dashboard", "ambient"]`
+```

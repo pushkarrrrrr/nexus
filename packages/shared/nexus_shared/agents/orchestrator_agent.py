@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.shared.nexus_shared.agents.base import AgentStepResult, BaseAgent
+from packages.shared.nexus_shared.agents.computer_agent import ComputerAgent
 from packages.shared.nexus_shared.agents.document_agent import DocumentAgent
 from packages.shared.nexus_shared.agents.planning_agent import PlanningAgent
 from packages.shared.nexus_shared.agents.research_agent import ResearchAgent
@@ -48,6 +49,7 @@ class OrchestratorAgent(BaseAgent):
         self.planning_agent = PlanningAgent()
         self.research_agent = ResearchAgent()
         self.document_agent = DocumentAgent()
+        self.computer_agent = ComputerAgent()
 
         # Agent directory for dynamic dispatch
         self._sub_agents: dict[str, BaseAgent] = {
@@ -55,12 +57,19 @@ class OrchestratorAgent(BaseAgent):
             "planning": self.planning_agent,
             "research": self.research_agent,
             "document": self.document_agent,
+            "computer": self.computer_agent,
         }
 
     def get_roster(self) -> list[AgentRosterItem]:
         """Return the active agent roster."""
         roster: list[AgentRosterItem] = []
-        for a in [self, self.planning_agent, self.research_agent, self.document_agent]:
+        for a in [
+            self,
+            self.planning_agent,
+            self.research_agent,
+            self.document_agent,
+            self.computer_agent,
+        ]:
             roster.append(
                 AgentRosterItem(
                     agent_type=a.agent_type,
@@ -421,6 +430,39 @@ class OrchestratorAgent(BaseAgent):
                         content=f"Step {pending_step.index} completed successfully.",
                         structured_payload=step_result.result_payload,
                     )
+                )
+
+            elif step_result.result_payload and step_result.result_payload.get(
+                "is_awaiting_approval"
+            ):
+                # Safeguard 3: Resumable Step Metadata for Approvals
+                approval_id = step_result.result_payload.get("approval_id")
+                pending_step.status = "awaiting_approval"
+                pending_step.result_payload = step_result.result_payload
+                pending_step.error_message = step_result.error_message
+                plan.status = "awaiting_approval"
+                task.status = TaskStatus.AWAITING_APPROVAL.value
+                await db.commit()
+
+                if event_callback:
+                    try:
+                        await event_callback("step_awaiting_approval", pending_step)
+                    except Exception as cb_err:  # noqa: BLE001
+                        self.logger.debug("event_callback error: %s", cb_err)
+
+                messages.append(
+                    AgentMessage(
+                        role="agent",
+                        sender=pending_step.assigned_agent,
+                        recipient="orchestrator",
+                        content=f"Step {pending_step.index} paused awaiting human approval (Approval ID: {approval_id}).",
+                        structured_payload=step_result.result_payload,
+                    )
+                )
+                return (
+                    plan,
+                    f"Task paused: Step {pending_step.index} requires approval ({approval_id})",
+                    messages,
                 )
 
             else:

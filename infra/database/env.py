@@ -29,10 +29,8 @@ target_metadata = Base.metadata
 settings = get_settings()
 
 # Check environment or fallback
-db_url = os.environ.get("DATABASE_URL")
-if not db_url:
-    # Default to sqlite for local file development unless explicitly postgres
-    db_url = settings.sqlite_fallback_url
+raw_db_url = os.environ.get("DATABASE_URL")
+db_url: str = raw_db_url if raw_db_url else settings.sqlite_fallback_url
 
 if "sqlite" in db_url:
     os.makedirs(".nexus", exist_ok=True)

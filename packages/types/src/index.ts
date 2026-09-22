@@ -100,6 +100,86 @@ export interface AuditEvent {
   execution_duration_ms: number;
   undo_registered: boolean;
   undone_at?: string;
+  event_type?: string;
+  status?: string;
+  details?: Record<string, unknown>;
+  capability_name?: string;
+}
+
+export interface Capability {
+  id: string;
+  name: string;
+  category: ActionType;
+  default_risk_level: RiskLevel;
+  description: string;
+  is_active: boolean;
+}
+
+export interface UserPermission {
+  id: string;
+  user_id: string;
+  capability_name: string;
+  scope: 'ONE_TIME' | 'SESSION' | 'STANDING';
+  resource_pattern: string;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+export interface ApprovalRequestRecord {
+  id: string;
+  user_id: string;
+  task_id?: string | null;
+  step_id?: string | null;
+  capability_name: string;
+  action_category: ActionType;
+  risk_level: RiskLevel;
+  reason: string;
+  affected_resources: string[];
+  parameters: Record<string, unknown>;
+  status: 'PENDING' | 'APPROVED' | 'DENIED' | 'EXPIRED';
+  approved_scope?: 'ONE_TIME' | 'SESSION' | 'STANDING' | null;
+  expires_at?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+  snapshot_id?: string | null;
+  diff_preview?: string | null;
+  is_reversible?: boolean;
+}
+
+export interface ApprovalResolutionPayload {
+  decision: 'APPROVED' | 'DENIED';
+  chosen_scope?: 'ONE_TIME' | 'SESSION' | 'STANDING';
+  session_ttl_minutes?: number;
+}
+
+export interface PolicyDecisionResponse {
+  verdict: 'ALLOWED' | 'REQUIRES_APPROVAL' | 'BLOCKED';
+  capability_name: string;
+  risk_level: RiskLevel;
+  reason: string;
+  approval_id?: string | null;
+  matching_permission_id?: string | null;
+  affected_resource: string;
+  timestamp: string;
+}
+
+export interface AuditLogRecord {
+  id: string;
+  user_id?: string | null;
+  session_id?: string | null;
+  step_id?: string | null;
+  agent_name: string;
+  tool_name: string;
+  action_type: ActionType;
+  risk_level: RiskLevel;
+  event_type: 'POLICY_CHECK' | 'APPROVAL_REQUESTED' | 'APPROVAL_RESOLVED' | 'ACTION_BLOCKED' | 'ACTION_ALLOWED' | 'PERMISSION_REVOKED' | string;
+  capability_name?: string | null;
+  status: 'SUCCESS' | 'BLOCKED' | 'DENIED' | string;
+  policy_verdict: string;
+  details: Record<string, unknown>;
+  ip_address?: string | null;
+  created_at: string;
+  timestamp?: string | null;
 }
 
 export interface SnapshotRecord {
@@ -762,5 +842,131 @@ export interface AgentRosterItem {
   system_prompt_preview: string;
 }
 
+// ============================================================================
+// Phase 10: Reversible Actions & Diff Approval Contracts
+// ============================================================================
 
+export interface ActionSnapshot {
+  id: string;
+  user_id: string;
+  task_id?: string | null;
+  step_id?: string | null;
+  capability_name: string;
+  action_type: string;
+  is_reversible: boolean;
+  target_path?: string | null;
+  before_state?: Record<string, unknown> | null;
+  after_state?: Record<string, unknown> | null;
+  diff_patch?: string | null;
+  status: 'CAPTURED' | 'APPLIED' | 'REVERTED' | 'FAILED' | string;
+  reverted_at?: string | null;
+  created_at: string;
+}
+
+export interface ActionSnapshotListResponse {
+  items: ActionSnapshot[];
+  total: number;
+}
+
+export interface DiffPreviewRequest {
+  target_path: string;
+  proposed_content: string;
+  action_type?: string;
+}
+
+export interface DiffPreviewResponse {
+  target_path: string;
+  diff_patch: string;
+  lines_added: number;
+  lines_removed: number;
+  is_reversible: boolean;
+  sha256_before?: string | null;
+  sha256_after: string;
+}
+
+export interface RevertActionRequest {
+  force?: boolean;
+}
+
+export interface RevertActionResponse {
+  snapshot_id: string;
+  status: string;
+  message: string;
+  target_path?: string | null;
+  reverted_at: string;
+}
+
+// ============================================================================
+// Phase 11: Tool System & Controlled Computer Actions Contracts
+// ============================================================================
+
+export interface ToolManifestResponse {
+  name: string;
+  description: string;
+  required_capability: string;
+  default_risk_level: string;
+  timeout_seconds: number;
+  is_reversible: boolean;
+  input_schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
+}
+
+export interface ToolListResponse {
+  items: ToolManifestResponse[];
+  total: number;
+}
+
+export interface ToolExecuteRequest {
+  parameters?: Record<string, unknown>;
+  context?: Record<string, unknown> | null;
+}
+
+export interface ToolExecuteResponse {
+  tool: string;
+  success: boolean;
+  output?: unknown;
+  error?: string | null;
+  duration_ms: number;
+  snapshot_id?: string | null;
+  approval_id?: string | null;
+  is_awaiting_approval: boolean;
+}
+
+// ============================================================================
+// Phase 12: Ambient NEXUS Desktop Layer Contracts
+// ============================================================================
+
+export interface AmbientContextState {
+  appName: string;
+  windowTitle: string;
+  selectedText?: string | null;
+  capturedAt: string;
+}
+
+export type AmbientHudState = 
+  | 'idle' 
+  | 'planning' 
+  | 'executing' 
+  | 'approval' 
+  | 'result' 
+  | 'error';
+
+export interface AmbientExecutionRequest {
+  prompt: string;
+  context?: AmbientContextState | null;
+  session_id?: string | null;
+  model_profile?: string | null;
+}
+
+export interface AmbientExecutionResponse {
+  task_id: string;
+  status: string;
+  message?: string | null;
+  plan?: ExecutionPlan | null;
+}
+
+export interface TauriNativeAppContext {
+  appName: string;
+  windowTitle: string;
+}
 

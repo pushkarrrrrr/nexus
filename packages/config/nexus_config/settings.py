@@ -48,6 +48,10 @@ class NexusSettings(BaseSettings):
         default="nexus-development-secret-key-change-in-production",
         alias="ENCRYPTION_KEY",
     )
+    integration_encryption_key: str = Field(
+        default="nexus-integration-default-aes256-gcm-key-32b!",
+        alias="INTEGRATION_ENCRYPTION_KEY",
+    )
     session_expiry_hours: int = Field(default=24, alias="SESSION_EXPIRY_HOURS")
     auto_approve_low_risk: bool = Field(default=True, alias="AUTO_APPROVE_LOW_RISK")
 

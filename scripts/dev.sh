@@ -26,8 +26,8 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-echo "--> Launching FastAPI Core Backend on port 8000..."
-uvicorn services.api.nexus_api.main:app --host 0.0.0.0 --port 8000 &
+echo "--> Launching FastAPI Core Backend on port 8000 (with hot reload)..."
+uvicorn services.api.nexus_api.main:app --host 0.0.0.0 --port 8000 --reload &
 
 echo "--> Launching Next.js Web Dashboard on port 3000..."
 npm run --workspace=@nexus/dashboard dev &
