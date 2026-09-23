@@ -11,7 +11,6 @@ class SSRFSecurityViolation(PolicyViolationError):
     """Raised when an outbound URL violates SSRF security boundaries."""
 
 
-
 BLOCKED_NETWORKS = [
     # IPv4 loopback
     ipaddress.ip_network("127.0.0.0/8"),
@@ -54,7 +53,9 @@ def validate_url_safe(url: str) -> str:
 
     # Reject localhost directly
     if hostname.lower() in ("localhost", "localhost.", "ip6-localhost", "ip6-loopback"):
-        raise SSRFSecurityViolation(f"Target host '{hostname}' resolves to loopback (SSRF blocked).")
+        raise SSRFSecurityViolation(
+            f"Target host '{hostname}' resolves to loopback (SSRF blocked)."
+        )
 
     # Resolve IP addresses
     try:
@@ -74,7 +75,9 @@ def validate_url_safe(url: str) -> str:
             raise SSRFSecurityViolation(f"Invalid resolved IP '{ip_str}': {e}") from e
 
         # Check for NAT64 well-known prefix (64:ff9b::/96)
-        if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj in ipaddress.ip_network("64:ff9b::/96"):
+        if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj in ipaddress.ip_network(
+            "64:ff9b::/96"
+        ):
             # Extract embedded IPv4 (last 32 bits)
             ipv4_int = int(ip_obj) & 0xFFFFFFFF
             embedded_v4 = ipaddress.IPv4Address(ipv4_int)
@@ -90,12 +93,7 @@ def validate_url_safe(url: str) -> str:
             continue
 
         # Check loopback, private, link_local, multicast properties
-        if (
-            ip_obj.is_loopback
-            or ip_obj.is_private
-            or ip_obj.is_link_local
-            or ip_obj.is_multicast
-        ):
+        if ip_obj.is_loopback or ip_obj.is_private or ip_obj.is_link_local or ip_obj.is_multicast:
             raise SSRFSecurityViolation(
                 f"Target hostname '{hostname}' resolves to restricted IP '{ip_str}' (SSRF blocked)."
             )

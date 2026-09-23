@@ -71,7 +71,9 @@ class BrowserSessionManager:
         except asyncio.CancelledError:
             pass
 
-    async def reap_idle_contexts(self, timeout_seconds: float = DEFAULT_IDLE_TIMEOUT_SECONDS) -> int:
+    async def reap_idle_contexts(
+        self, timeout_seconds: float = DEFAULT_IDLE_TIMEOUT_SECONDS
+    ) -> int:
         """Close any browser contexts that have been inactive longer than timeout_seconds."""
         async with self._lock:
             reaped_count = 0

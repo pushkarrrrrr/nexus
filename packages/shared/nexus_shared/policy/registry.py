@@ -14,6 +14,7 @@ ActionCategory = Literal[
     "EXECUTE",
     "EXTERNAL_ACTION",
     "SYSTEM_CONTROL",
+    "SYSTEM_INFO",
 ]
 RiskLevel = Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
@@ -211,6 +212,43 @@ DEFAULT_CAPABILITIES: list[CapabilityDefinition] = [
         category="SYSTEM_CONTROL",
         default_risk_level="HIGH",
         description="Send global shortcut keys to macOS application (requires user approval)",
+    ),
+    # Phase 14: Proactive Watchers, Triggers & Self-Healing Capabilities
+    CapabilityDefinition(
+        name="watcher.get_system_metrics",
+        category="SYSTEM_INFO",
+        default_risk_level="LOW",
+        description="Query host CPU, memory, and disk telemetry metrics",
+    ),
+    CapabilityDefinition(
+        name="watcher.inspect_events",
+        category="SYSTEM_INFO",
+        default_risk_level="LOW",
+        description="Inspect history of proactive trigger detections and anomaly events",
+    ),
+    CapabilityDefinition(
+        name="trigger.create_rule",
+        category="WRITE",
+        default_risk_level="MEDIUM",
+        description="Define and persist proactive watcher rules and threshold conditions",
+    ),
+    CapabilityDefinition(
+        name="trigger.list_rules",
+        category="READ",
+        default_risk_level="LOW",
+        description="List active and configured proactive trigger rules",
+    ),
+    CapabilityDefinition(
+        name="remediation.execute_fix",
+        category="SYSTEM_CONTROL",
+        default_risk_level="HIGH",
+        description="Execute self-healing intervention or repair workflow (strictly requires user approval)",
+    ),
+    CapabilityDefinition(
+        name="remediation.trigger_recovery",
+        category="SYSTEM_CONTROL",
+        default_risk_level="HIGH",
+        description="Trigger proactive task restart or automated recovery sequence (strictly requires user approval)",
     ),
 ]
 

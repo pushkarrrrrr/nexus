@@ -458,5 +458,50 @@ Native macOS Host Environment
    │     └── Full Synchronization: Actions stream to central Task DAG and immutable Audit Ledger
    │
    └── [System Status & Surface Discovery (`/api/v1/system/status`)]
-         └── Reports `phase: "phase_12_ambient_desktop"` and `supported_surfaces: ["dashboard", "ambient"]`
+         └── Reports `phase: "phase_14_autonomous_triggers"` and `supported_surfaces: ["dashboard", "ambient"]`
+```
+
+---
+
+## 14. Autonomous Proactive Watchers, Event Triggers & Self-Healing Engine (Phase 14)
+
+```
+Host Operating System & Kernel Runtime
+   │
+   ├── [SystemWatcher (`packages/shared/nexus_shared/proactive/watcher.py`)]
+   │     ├── Zero external binary dependencies (pure Python / POSIX standard library)
+   │     ├── Native CPU load average collection (`os.getloadavg`)
+   │     ├── Memory telemetry (`sysctl` on macOS, `os.sysconf` on POSIX / Linux)
+   │     └── Disk utilization metrics (`shutil.disk_usage`)
+   │
+   ├── [TriggerEvaluator (`packages/shared/nexus_shared/proactive/evaluator.py`)]
+   │     ├── Condition evaluation engine:
+   │     │     ├── `threshold`: CPU, Memory, Disk percentage comparisons (`>`, `>=`, `<`, `<=`, `==`)
+   │     │     ├── `schedule`: Recurring interval triggers (`interval_seconds`)
+   │     │     └── `file_watch`: State monitoring for local filesystem paths
+   │     └── Cooldown Enforcement: Throttles re-triggering within `cooldown_seconds` window
+   │
+   ├── [RemediationCoordinator (`packages/shared/nexus_shared/proactive/remediation.py`)]
+   │     ├── Human-in-the-Loop Safety Invariant:
+   │     │     ├── Low-Risk Actions (`RiskLevel.LOW` / `SYSTEM_INFO`): Autonomous read-only execution
+   │     │     └── High-Risk Actions (`RiskLevel.HIGH` / `remediation.execute_fix`):
+   │     │           ├── Halts automated mutating remediation immediately
+   │     │           ├── Generates `ApprovalRequestModel` in database
+   │     │           ├── Logs `TriggerEventModel` with status `awaiting_approval`
+   │     │           └── Broadcasts `approval_required` and `trigger_detected` events over WebSocket bus
+   │     └── Tool Registry integration for executing approved interventions
+   │
+   ├── [ProactiveTriggerEngine (`packages/shared/nexus_shared/proactive/engine.py`)]
+   │     ├── Background asynchronous worker loop (`asyncio.create_task`)
+   │     ├── Integrated with FastAPI application lifespan (`main.py`)
+   │     ├── Graceful, deterministic shutdown on `asyncio.CancelledError`
+   │     └── SQLite Concurrency Hardening: `WAL` journal mode and 30,000ms busy timeout
+   │
+   ├── [Database Persistence (`infra/database/versions/010_proactive_triggers.py`)]
+   │     ├── `proactive_triggers`: Trigger definitions, thresholds, actions, cooldowns, and timestamps
+   │     └── `trigger_events`: Append-only event history, observed data, approval references, and execution status
+   │
+   └── [Client Surfaces]
+         ├── Dashboard Cockpit (`/triggers`): System health gauges, trigger rule management, anomaly log
+         └── Ambient Desktop HUD: Real-time floating alert pill with warning banner for detected triggers
 ```

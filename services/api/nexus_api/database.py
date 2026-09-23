@@ -4,8 +4,9 @@ NEXUS Async Database Engine & Session Management
 
 import os
 from collections.abc import AsyncGenerator
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -20,6 +21,19 @@ logger = get_logger("nexus.database")
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+
+
+def configure_sqlite_connection(engine: AsyncEngine) -> None:
+    """Enforce WAL mode and 30-second busy timeout for SQLite concurrency."""
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA busy_timeout=30000;")
+        finally:
+            cursor.close()
 
 
 async def init_database() -> AsyncEngine:
@@ -54,12 +68,15 @@ async def init_database() -> AsyncEngine:
                 settings.sqlite_fallback_url,
                 echo=settings.database_echo,
             )
+            configure_sqlite_connection(_engine)
     else:
         os.makedirs(".nexus", exist_ok=True)
         _engine = create_async_engine(
             target_url or settings.sqlite_fallback_url,
             echo=settings.database_echo,
         )
+        if "sqlite" in (target_url or settings.sqlite_fallback_url):
+            configure_sqlite_connection(_engine)
         logger.info("connected_to_sqlite", url=settings.sqlite_fallback_url)
 
     _session_factory = async_sessionmaker(

@@ -317,4 +317,3 @@ async def get_macos_permissions(
 ) -> dict[str, Any]:
     """Inspect macOS TCC permission state (Accessibility, Screen Recording) with settings deep links."""
     return check_macos_permissions()
-

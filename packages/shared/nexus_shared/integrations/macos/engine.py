@@ -21,6 +21,7 @@ from packages.shared.nexus_shared.logging import get_logger
 
 logger = get_logger("nexus.integrations.macos.engine")
 
+
 # ---------------------------------------------------------------------------
 # CoreGraphics / Quartz / CoreFoundation CTypes Bindings
 # ---------------------------------------------------------------------------
@@ -44,16 +45,64 @@ kCGEventFlagMaskControl = 0x00040000
 
 # Virtual Key Codes (macOS US Layout standard)
 KEY_CODES: dict[str, int] = {
-    "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7,
-    "c": 8, "v": 9, "b": 11, "q": 12, "w": 13, "e": 14, "r": 15,
-    "y": 16, "t": 17, "1": 18, "2": 19, "3": 20, "4": 21, "6": 22,
-    "5": 23, "=": 24, "9": 25, "7": 26, "-": 27, "8": 28, "0": 29,
-    "]": 30, "o": 31, "u": 32, "[": 33, "i": 34, "p": 35, "l": 37,
-    "j": 38, "'": 39, "k": 40, ";": 41, "\\": 42, ",": 43, "/": 44,
-    "n": 45, "m": 46, ".": 47,
-    "return": 36, "enter": 36, "tab": 48, "space": 49, "delete": 51,
-    "backspace": 51, "escape": 53, "esc": 53,
-    "left": 123, "right": 124, "down": 125, "up": 126,
+    "a": 0,
+    "s": 1,
+    "d": 2,
+    "f": 3,
+    "h": 4,
+    "g": 5,
+    "z": 6,
+    "x": 7,
+    "c": 8,
+    "v": 9,
+    "b": 11,
+    "q": 12,
+    "w": 13,
+    "e": 14,
+    "r": 15,
+    "y": 16,
+    "t": 17,
+    "1": 18,
+    "2": 19,
+    "3": 20,
+    "4": 21,
+    "6": 22,
+    "5": 23,
+    "=": 24,
+    "9": 25,
+    "7": 26,
+    "-": 27,
+    "8": 28,
+    "0": 29,
+    "]": 30,
+    "o": 31,
+    "u": 32,
+    "[": 33,
+    "i": 34,
+    "p": 35,
+    "l": 37,
+    "j": 38,
+    "'": 39,
+    "k": 40,
+    ";": 41,
+    "\\": 42,
+    ",": 43,
+    "/": 44,
+    "n": 45,
+    "m": 46,
+    ".": 47,
+    "return": 36,
+    "enter": 36,
+    "tab": 48,
+    "space": 49,
+    "delete": 51,
+    "backspace": 51,
+    "escape": 53,
+    "esc": 53,
+    "left": 123,
+    "right": 124,
+    "down": 125,
+    "up": 126,
 }
 
 _cg_lib = None
@@ -66,12 +115,16 @@ def _load_macos_frameworks() -> tuple[Any, Any]:
         return None, None
     if _cg_lib is None:
         try:
-            _cg_lib = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
+            _cg_lib = ctypes.cdll.LoadLibrary(
+                "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+            )
         except OSError:
             _cg_lib = None
     if _cf_lib is None:
         try:
-            _cf_lib = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+            _cf_lib = ctypes.cdll.LoadLibrary(
+                "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+            )
         except OSError:
             _cf_lib = None
     return _cg_lib, _cf_lib
@@ -395,7 +448,12 @@ def post_mouse_click(x: float, y: float, button: str = "left") -> bool:
     mouse_btn = kCGMouseButtonLeft if is_left else kCGMouseButtonRight
 
     cg.CGEventCreateMouseEvent.restype = ctypes.c_void_p
-    cg.CGEventCreateMouseEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint32, CGPoint, ctypes.c_uint32]
+    cg.CGEventCreateMouseEvent.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        CGPoint,
+        ctypes.c_uint32,
+    ]
     cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
 
     cf, _ = _load_macos_frameworks()
@@ -535,7 +593,12 @@ def resolve_window_id(app_name: str) -> int | None:
         cf.CFNumberGetValue.restype = ctypes.c_bool
         cf.CFNumberGetValue.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
         cf.CFStringGetCString.restype = ctypes.c_bool
-        cf.CFStringGetCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_uint32]
+        cf.CFStringGetCString.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_long,
+            ctypes.c_uint32,
+        ]
 
         kCFStringEncodingUTF8 = 0x08000100
         kOwnerKey = cf.CFStringCreateWithCString(None, b"kCGWindowOwnerName", kCFStringEncodingUTF8)
@@ -555,7 +618,9 @@ def resolve_window_id(app_name: str) -> int | None:
                     owner_name = buf.value.decode("utf-8", errors="ignore")
                     if target_lower in owner_name.lower():
                         win_num = ctypes.c_uint32(0)
-                        cf.CFNumberGetValue(num_ref, 3, ctypes.byref(win_num))  # kCFNumberSInt32Type = 3
+                        cf.CFNumberGetValue(
+                            num_ref, 3, ctypes.byref(win_num)
+                        )  # kCFNumberSInt32Type = 3
                         target_win_id = win_num.value
                         break
 

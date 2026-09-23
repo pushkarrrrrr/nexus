@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,10 +26,25 @@ async def lifespan(app: FastAPI):
     # Initialize DB connection pool
     await init_database()
 
+    # Phase 14: Start Proactive Trigger Engine with clean cancellation lifecycle
+    from packages.shared.nexus_shared.proactive import get_proactive_engine
+    from services.api.nexus_api.database import get_session_factory
+    from services.api.nexus_api.websocket import manager as ws_manager
+
+    proactive_engine = get_proactive_engine()
+    proactive_engine.set_session_factory(get_session_factory())
+
+    async def _broadcast_event(event_type: str, data: dict[str, Any]) -> None:
+        await ws_manager.broadcast({"type": event_type, "data": data})
+
+    proactive_engine.set_event_broadcaster(_broadcast_event)
+    await proactive_engine.start()
+
     yield
 
     # Clean shutdown
     logger.info("nexus_api_shutting_down")
+    await proactive_engine.stop()
     await close_database()
 
 

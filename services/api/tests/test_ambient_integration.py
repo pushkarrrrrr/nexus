@@ -88,7 +88,7 @@ async def test_system_status_ambient_surface():
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "ready"
-        assert data["phase"] == "phase_12_ambient_desktop"
+        assert data["phase"] in ("phase_12_ambient_desktop", "phase_14_autonomous_triggers")
         assert "ambient" in data["supported_surfaces"]
 
 

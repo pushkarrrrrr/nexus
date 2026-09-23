@@ -8,6 +8,7 @@ import { PlanningView } from "./components/PlanningView";
 import { ToolActivityPulse } from "./components/ToolActivityPulse";
 import { InlineApprovalModal } from "./components/InlineApprovalModal";
 import { ResultView } from "./components/ResultView";
+import { ProactiveAlertPill } from "./components/ProactiveAlertPill";
 
 type HudState = "idle" | "planning" | "executing" | "approval" | "result" | "error";
 
@@ -235,6 +236,13 @@ export default function App() {
             selectedText={selectedText}
             onCaptureSelection={captureSelection}
           />
+          {pendingApproval && (
+            <ProactiveAlertPill
+              hasAlert={true}
+              alertText="Intervention Required"
+              onClick={() => setHudState("approval")}
+            />
+          )}
         </form>
 
         {/* Dynamic State Views */}

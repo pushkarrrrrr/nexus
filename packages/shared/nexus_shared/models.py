@@ -132,6 +132,12 @@ class UserModel(Base):
     integrations: Mapped[list["ExternalIntegrationModel"]] = relationship(
         "ExternalIntegrationModel", back_populates="user", cascade="all, delete-orphan"
     )
+    proactive_triggers: Mapped[list["ProactiveTriggerModel"]] = relationship(
+        "ProactiveTriggerModel", back_populates="user", cascade="all, delete-orphan"
+    )
+    trigger_events: Mapped[list["TriggerEventModel"]] = relationship(
+        "TriggerEventModel", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class UserPreferenceModel(Base):
@@ -1018,3 +1024,107 @@ class ExternalIntegrationModel(Base):
         if getattr(self, "updated_at", None) is None:
             self.updated_at = utcnow()
 
+
+class ProactiveTriggerModel(Base):
+    __tablename__ = "proactive_triggers"
+    __table_args__ = (Index("ix_proactive_triggers_user_active", "user_id", "is_active"),)
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("trig")
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    trigger_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    condition: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    action_capability: Mapped[str] = mapped_column(String(64), nullable=False)
+    action_params: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    cooldown_seconds: Mapped[int] = mapped_column(Integer, default=300, nullable=False)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    trigger_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="proactive_triggers")
+    events: Mapped[list["TriggerEventModel"]] = relationship(
+        "TriggerEventModel", back_populates="trigger", cascade="all, delete-orphan"
+    )
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("trig")
+        if getattr(self, "condition", None) is None:
+            self.condition = {}
+        if getattr(self, "action_params", None) is None:
+            self.action_params = {}
+        if getattr(self, "is_active", None) is None:
+            self.is_active = True
+        if getattr(self, "cooldown_seconds", None) is None:
+            self.cooldown_seconds = 300
+        if getattr(self, "trigger_count", None) is None:
+            self.trigger_count = 0
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
+        if getattr(self, "updated_at", None) is None:
+            self.updated_at = utcnow()
+
+
+class TriggerEventModel(Base):
+    __tablename__ = "trigger_events"
+    __table_args__ = (Index("ix_trigger_events_user_status", "user_id", "status"),)
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("trevt")
+    )
+    trigger_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("proactive_triggers.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    observed_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    action_proposed: Mapped[str] = mapped_column(String(64), nullable=False)
+    approval_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("approval_requests.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), default="detected", nullable=False, index=True
+    )  # detected, awaiting_approval, approved, executed, rejected, failed
+    result_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="trigger_events")
+    trigger: Mapped["ProactiveTriggerModel"] = relationship(
+        "ProactiveTriggerModel", back_populates="events"
+    )
+    approval: Mapped["ApprovalRequestModel | None"] = relationship("ApprovalRequestModel")
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("trevt")
+        if getattr(self, "observed_data", None) is None:
+            self.observed_data = {}
+        if getattr(self, "status", None) is None:
+            self.status = "detected"
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()

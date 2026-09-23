@@ -970,3 +970,101 @@ export interface TauriNativeAppContext {
   windowTitle: string;
 }
 
+// ============================================================================
+// Phase 14: Proactive Watchers, Event Triggers & Self-Healing Contracts
+// ============================================================================
+
+export type TriggerType =
+  | 'threshold'
+  | 'schedule'
+  | 'task_failure'
+  | 'system_event'
+  | 'file_watch';
+
+export type TriggerEventStatus =
+  | 'detected'
+  | 'awaiting_approval'
+  | 'approved'
+  | 'executed'
+  | 'rejected'
+  | 'failed';
+
+export interface SystemMetrics {
+  timestamp: string;
+  cpu_percent: number;
+  cpu_load_1m: number;
+  cpu_load_5m: number;
+  cpu_load_15m: number;
+  memory_total_bytes: number;
+  memory_used_bytes: number;
+  memory_percent: number;
+  disk_total_bytes: number;
+  disk_used_bytes: number;
+  disk_free_bytes: number;
+  disk_percent: number;
+  active_watchers: number;
+  status: string;
+}
+
+export interface TriggerCondition {
+  metric_name?: string;
+  operator?: '>' | '>=' | '<' | '<=' | '==' | '!=';
+  threshold_value?: number;
+  target_path?: string;
+  schedule_interval_sec?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ProactiveTrigger {
+  id: string;
+  user_id: string;
+  name: string;
+  trigger_type: TriggerType;
+  condition: TriggerCondition;
+  action_capability: string;
+  action_params: Record<string, unknown>;
+  is_active: boolean;
+  cooldown_seconds: number;
+  last_triggered_at?: string | null;
+  trigger_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TriggerCreateRequest {
+  name: string;
+  trigger_type?: TriggerType;
+  condition: TriggerCondition;
+  action_capability?: string;
+  action_params?: Record<string, unknown>;
+  cooldown_seconds?: number;
+  is_active?: boolean;
+}
+
+export interface TriggerEvent {
+  id: string;
+  trigger_id: string;
+  user_id: string;
+  event_type: string;
+  observed_data: Record<string, unknown>;
+  action_proposed: string;
+  approval_id?: string | null;
+  status: TriggerEventStatus;
+  result_payload?: Record<string, unknown> | null;
+  error_message?: string | null;
+  created_at: string;
+}
+
+export interface TriggerEvaluationResult {
+  triggered: boolean;
+  trigger_id: string;
+  trigger_name: string;
+  reason: string;
+  observed_data: Record<string, unknown>;
+  action_capability: string;
+  action_params: Record<string, unknown>;
+  requires_approval: boolean;
+  approval_id?: string | null;
+  status: TriggerEventStatus;
+}
+

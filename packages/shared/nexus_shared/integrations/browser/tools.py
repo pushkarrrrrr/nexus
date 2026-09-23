@@ -117,7 +117,9 @@ class BrowserNavigateTool(BaseTool):
 # -----------------------------------------------------------------------------
 class BrowserGetSnapshotInput(BaseModel):
     extract_text: bool = Field(default=True, description="Extract text content and DOM summary.")
-    capture_screenshot: bool = Field(default=False, description="Capture base64 viewport screenshot.")
+    capture_screenshot: bool = Field(
+        default=False, description="Capture base64 viewport screenshot."
+    )
 
 
 class BrowserGetSnapshotOutput(BaseModel):

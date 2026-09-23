@@ -43,6 +43,14 @@ from packages.shared.nexus_shared.tools.standard.filesystem_tools import (
     FilesystemReadTool,
     FilesystemWriteTool,
 )
+from packages.shared.nexus_shared.tools.standard.proactive_tools import (
+    RemediationExecuteFixTool,
+    RemediationTriggerRecoveryTool,
+    TriggerCreateRuleTool,
+    TriggerListRulesTool,
+    WatcherGetSystemMetricsTool,
+    WatcherInspectEventsTool,
+)
 from packages.shared.nexus_shared.tools.standard.terminal_tool import TerminalExecuteTool
 
 logger = get_logger("nexus.tools.registry")
@@ -91,6 +99,13 @@ class ToolRegistry:
             MacOSClickElementTool(),
             MacOSTypeTextTool(),
             MacOSSendShortcutTool(),
+            # Phase 14: Proactive Watchers, Triggers & Self-Healing Tools
+            WatcherGetSystemMetricsTool(),
+            WatcherInspectEventsTool(),
+            TriggerCreateRuleTool(),
+            TriggerListRulesTool(),
+            RemediationExecuteFixTool(),
+            RemediationTriggerRecoveryTool(),
         ]
         for tool in default_tools:
             self.register(tool)

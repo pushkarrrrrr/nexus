@@ -52,7 +52,9 @@ class MacOSConnector(BaseConnector):
         """Inspect macOS platform health, TCC status, and tool availability."""
         perms = check_macos_permissions()
         is_darwin = platform.system() == "Darwin"
-        status = "healthy" if (is_darwin and perms.get("accessibility_trusted", False)) else "degraded"
+        status = (
+            "healthy" if (is_darwin and perms.get("accessibility_trusted", False)) else "degraded"
+        )
         if not is_darwin:
             status = "unsupported"
 

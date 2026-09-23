@@ -188,7 +188,9 @@ async def test_browser_session_manager_get_context_mock():
         mock_play = AsyncMock()
         mock_play.chromium = mock_chromium
 
-        with patch("packages.shared.nexus_shared.integrations.browser.session.async_playwright") as mock_pw_factory:
+        with patch(
+            "packages.shared.nexus_shared.integrations.browser.session.async_playwright"
+        ) as mock_pw_factory:
             pw_cm = AsyncMock()
             pw_cm.start.return_value = mock_play
             mock_pw_factory.return_value = pw_cm
@@ -243,7 +245,9 @@ async def test_browser_click_and_type_tools():
     assert click_tool.default_risk_level == "HIGH"
     assert click_tool.required_capability == "browser.click"
 
-    click_res = await click_tool.run("test_user", click_tool.input_schema(selector="#submit-button"))
+    click_res = await click_tool.run(
+        "test_user", click_tool.input_schema(selector="#submit-button")
+    )
     assert click_res.success is True
     mock_page.click.assert_awaited_once_with("#submit-button", timeout=10000)
 
@@ -273,7 +277,13 @@ async def test_github_tools_with_mock_client():
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = [
-        {"id": 101, "number": 1, "title": "Bug in auth", "state": "open", "html_url": "https://github.com/owner/repo/issues/1"}
+        {
+            "id": 101,
+            "number": 1,
+            "title": "Bug in auth",
+            "state": "open",
+            "html_url": "https://github.com/owner/repo/issues/1",
+        }
     ]
 
     with patch("httpx.AsyncClient.get", new=AsyncMock(return_value=mock_resp)):
@@ -348,7 +358,9 @@ async def test_google_tools_with_mock_client():
     with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=mock_mail_resp)):
         mail_out = await email_tool.run(
             user_id,
-            email_tool.input_schema(to="user@example.com", subject="Hello NEXUS", body="Automated message"),
+            email_tool.input_schema(
+                to="user@example.com", subject="Hello NEXUS", body="Automated message"
+            ),
         )
         assert mail_out.id == "msg_999"
         assert mail_out.to == "user@example.com"

@@ -14,8 +14,12 @@ from packages.shared.nexus_shared.logging import get_logger
 
 logger = get_logger("nexus.integrations.macos.permissions")
 
-ACCESSIBILITY_PREF_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-SCREEN_CAPTURE_PREF_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+ACCESSIBILITY_PREF_URL = (
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+)
+SCREEN_CAPTURE_PREF_URL = (
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+)
 
 
 def _check_accessibility_trusted() -> bool:
@@ -24,7 +28,9 @@ def _check_accessibility_trusted() -> bool:
         return False
     try:
         # Load ApplicationServices framework
-        app_services_path = "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
+        app_services_path = (
+            "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
+        )
         try:
             app_services = ctypes.cdll.LoadLibrary(app_services_path)
         except OSError:

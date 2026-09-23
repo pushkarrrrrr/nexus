@@ -21,6 +21,8 @@ from packages.shared.nexus_shared.integrations.macos import (
     MacOSSendShortcutTool,
     MacOSTypeTextTool,
     check_macos_permissions,
+)
+from packages.shared.nexus_shared.integrations.macos import (
     engine as macos_engine,
 )
 from packages.shared.nexus_shared.models import ApprovalRequestModel, UserPermissionModel
@@ -62,13 +64,17 @@ async def auth_user():
 # 1. TCC Permission Verification Tests
 # =============================================================================
 def test_check_macos_permissions_granted():
-    with patch(
-        "packages.shared.nexus_shared.integrations.macos.permissions._check_accessibility_trusted",
-        return_value=True,
-    ), patch(
-        "packages.shared.nexus_shared.integrations.macos.permissions._check_screen_capture_allowed",
-        return_value=True,
-    ), patch("platform.system", return_value="Darwin"):
+    with (
+        patch(
+            "packages.shared.nexus_shared.integrations.macos.permissions._check_accessibility_trusted",
+            return_value=True,
+        ),
+        patch(
+            "packages.shared.nexus_shared.integrations.macos.permissions._check_screen_capture_allowed",
+            return_value=True,
+        ),
+        patch("platform.system", return_value="Darwin"),
+    ):
         res = check_macos_permissions()
         assert res["is_macos"] is True
         assert res["accessibility_trusted"] is True
@@ -81,13 +87,17 @@ def test_check_macos_permissions_granted():
 
 
 def test_check_macos_permissions_missing():
-    with patch(
-        "packages.shared.nexus_shared.integrations.macos.permissions._check_accessibility_trusted",
-        return_value=False,
-    ), patch(
-        "packages.shared.nexus_shared.integrations.macos.permissions._check_screen_capture_allowed",
-        return_value=False,
-    ), patch("platform.system", return_value="Darwin"):
+    with (
+        patch(
+            "packages.shared.nexus_shared.integrations.macos.permissions._check_accessibility_trusted",
+            return_value=False,
+        ),
+        patch(
+            "packages.shared.nexus_shared.integrations.macos.permissions._check_screen_capture_allowed",
+            return_value=False,
+        ),
+        patch("platform.system", return_value="Darwin"),
+    ):
         res = check_macos_permissions()
         assert res["is_macos"] is True
         assert res["accessibility_trusted"] is False
@@ -106,8 +116,9 @@ async def test_run_jxa_success():
     mock_proc.returncode = 0
     mock_proc.communicate = AsyncMock(return_value=(b'{"success": true, "count": 3}', b""))
 
-    with patch("platform.system", return_value="Darwin"), patch(
-        "asyncio.create_subprocess_exec", return_value=mock_proc
+    with (
+        patch("platform.system", return_value="Darwin"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_proc),
     ):
         res = await macos_engine.run_jxa("console.log('hello')")
         assert res == {"success": True, "count": 3}
@@ -118,11 +129,12 @@ async def test_run_jxa_timeout():
     mock_proc = MagicMock()
     mock_proc.communicate = AsyncMock(side_effect=TimeoutError())
 
-    with patch("platform.system", return_value="Darwin"), patch(
-        "asyncio.create_subprocess_exec", return_value=mock_proc
+    with (
+        patch("platform.system", return_value="Darwin"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+        pytest.raises(TimeoutError, match="timed out"),
     ):
-        with pytest.raises(TimeoutError, match="timed out"):
-            await macos_engine.run_jxa("while(true){}", timeout=0.1)
+        await macos_engine.run_jxa("while(true){}", timeout=0.1)
 
 
 @pytest.mark.asyncio
@@ -131,7 +143,9 @@ async def test_jxa_list_applications():
         {"app_name": "Finder", "bundle_id": "com.apple.finder", "pid": 100, "is_frontmost": True},
         {"app_name": "Safari", "bundle_id": "com.apple.Safari", "pid": 200, "is_frontmost": False},
     ]
-    with patch("packages.shared.nexus_shared.integrations.macos.engine.run_jxa", return_value=mock_data):
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.run_jxa", return_value=mock_data
+    ):
         apps = await macos_engine.list_applications()
         assert len(apps) == 2
         assert apps[0]["app_name"] == "Finder"
@@ -140,16 +154,21 @@ async def test_jxa_list_applications():
 
 @pytest.mark.asyncio
 async def test_jxa_focus_application():
-    with patch("packages.shared.nexus_shared.integrations.macos.engine.run_jxa", return_value={"success": True}):
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.run_jxa",
+        return_value={"success": True},
+    ):
         ok = await macos_engine.focus_application("Safari")
         assert ok is True
 
-    with patch(
-        "packages.shared.nexus_shared.integrations.macos.engine.run_jxa",
-        return_value={"success": False, "error": "App not found"},
+    with (
+        patch(
+            "packages.shared.nexus_shared.integrations.macos.engine.run_jxa",
+            return_value={"success": False, "error": "App not found"},
+        ),
+        pytest.raises(RuntimeError, match="App not found"),
     ):
-        with pytest.raises(RuntimeError, match="App not found"):
-            await macos_engine.focus_application("NonExistentApp")
+        await macos_engine.focus_application("NonExistentApp")
 
 
 @pytest.mark.asyncio
@@ -169,7 +188,9 @@ async def test_jxa_inspect_element_tree():
             }
         ],
     }
-    with patch("packages.shared.nexus_shared.integrations.macos.engine.run_jxa", return_value=mock_tree):
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.run_jxa", return_value=mock_tree
+    ):
         tree = await macos_engine.inspect_element_tree("Calculator", max_depth=2)
         assert tree["app_name"] == "Calculator"
         assert tree["window_count"] == 1
@@ -178,7 +199,10 @@ async def test_jxa_inspect_element_tree():
 
 @pytest.mark.asyncio
 async def test_jxa_ax_click_and_set_value():
-    with patch("packages.shared.nexus_shared.integrations.macos.engine.run_jxa", return_value={"success": True}):
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.run_jxa",
+        return_value={"success": True},
+    ):
         click_ok = await macos_engine.ax_click_element("Calculator", "AXButton", "1")
         assert click_ok is True
 
@@ -271,9 +295,11 @@ async def test_capture_window_image(tmp_path):
             writer.write(png_bytes)
         return f
 
-    with patch("platform.system", return_value="Darwin"), patch(
-        "asyncio.create_subprocess_exec", return_value=mock_proc
-    ), patch("tempfile.NamedTemporaryFile", side_effect=fake_temp):
+    with (
+        patch("platform.system", return_value="Darwin"),
+        patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+        patch("tempfile.NamedTemporaryFile", side_effect=fake_temp),
+    ):
         res = await macos_engine.capture_window_image("Antigravity IDE", window_id=256)
         assert res["app_name"] == "Antigravity IDE"
         assert res["window_id"] == 256
@@ -296,8 +322,18 @@ async def test_macos_tools_execution():
     with patch(
         "packages.shared.nexus_shared.integrations.macos.engine.list_applications",
         return_value=[
-            {"app_name": "Slack", "bundle_id": "com.tinyspeck.slackmacgap", "pid": 501, "is_frontmost": True},
-            {"app_name": "Spotify", "bundle_id": "com.spotify.client", "pid": 502, "is_frontmost": False},
+            {
+                "app_name": "Slack",
+                "bundle_id": "com.tinyspeck.slackmacgap",
+                "pid": 501,
+                "is_frontmost": True,
+            },
+            {
+                "app_name": "Spotify",
+                "bundle_id": "com.spotify.client",
+                "pid": 502,
+                "is_frontmost": False,
+            },
         ],
     ):
         res = await list_tool.execute(user_id=user_id, params={"filter_name": "sla"})
@@ -307,7 +343,10 @@ async def test_macos_tools_execution():
 
     # 2. focus_app
     focus_tool = MacOSFocusAppTool()
-    with patch("packages.shared.nexus_shared.integrations.macos.engine.focus_application", return_value=True):
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.focus_application",
+        return_value=True,
+    ):
         res = await focus_tool.execute(user_id=user_id, params={"app_name": "Slack"})
         assert res.success is True
         assert "activated" in res.output.message
@@ -318,7 +357,9 @@ async def test_macos_tools_execution():
         "packages.shared.nexus_shared.integrations.macos.engine.inspect_element_tree",
         return_value={"app_name": "Slack", "pid": 501, "window_count": 1, "tree": []},
     ):
-        res = await inspect_tool.execute(user_id=user_id, params={"app_name": "Slack", "max_depth": 2})
+        res = await inspect_tool.execute(
+            user_id=user_id, params={"app_name": "Slack", "max_depth": 2}
+        )
         assert res.success is True
         assert res.output.app_name == "Slack"
 
@@ -342,7 +383,9 @@ async def test_macos_tools_execution():
 
     # 5. click_element (HIGH risk action execution)
     click_tool = MacOSClickElementTool()
-    with patch("packages.shared.nexus_shared.integrations.macos.engine.ax_click_element", return_value=True):
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.ax_click_element", return_value=True
+    ):
         res = await click_tool.execute(
             user_id=user_id,
             params={"app_name": "Slack", "role": "AXButton", "title": "Send"},
@@ -352,20 +395,31 @@ async def test_macos_tools_execution():
 
     # 6. type_text (HIGH risk action execution)
     type_tool = MacOSTypeTextTool()
-    with patch("packages.shared.nexus_shared.integrations.macos.engine.ax_set_value", return_value=True):
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.ax_set_value", return_value=True
+    ):
         res = await type_tool.execute(
             user_id=user_id,
-            params={"app_name": "Slack", "text": "Deploying NEXUS Phase 13!", "submit_key": "enter"},
+            params={
+                "app_name": "Slack",
+                "text": "Deploying NEXUS Phase 13!",
+                "submit_key": "enter",
+            },
         )
         assert res.success is True
         assert res.output.typed_length > 0
 
     # 7. send_shortcut (HIGH risk action execution)
     shortcut_tool = MacOSSendShortcutTool()
-    with patch(
-        "packages.shared.nexus_shared.integrations.macos.engine.focus_application", return_value=True
-    ), patch(
-        "packages.shared.nexus_shared.integrations.macos.engine.post_shortcut", return_value=True
+    with (
+        patch(
+            "packages.shared.nexus_shared.integrations.macos.engine.focus_application",
+            return_value=True,
+        ),
+        patch(
+            "packages.shared.nexus_shared.integrations.macos.engine.post_shortcut",
+            return_value=True,
+        ),
     ):
         res = await shortcut_tool.execute(
             user_id=user_id,
@@ -478,7 +532,9 @@ async def test_macos_connector_lifecycle():
     connector = MacOSConnector()
     assert connector.provider == "macos"
 
-    with patch("packages.shared.nexus_shared.integrations.macos.connector.check_macos_permissions") as mock_perms:
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.connector.check_macos_permissions"
+    ) as mock_perms:
         mock_perms.return_value = {
             "accessibility_trusted": True,
             "screen_capture_allowed": True,
@@ -538,7 +594,12 @@ async def test_api_macos_endpoints(auth_user):
         with patch(
             "services.api.nexus_api.routes.v1.integrations.macos_engine.list_applications",
             return_value=[
-                {"app_name": "Finder", "bundle_id": "com.apple.finder", "pid": 100, "is_frontmost": True}
+                {
+                    "app_name": "Finder",
+                    "bundle_id": "com.apple.finder",
+                    "pid": 100,
+                    "is_frontmost": True,
+                }
             ],
         ):
             resp = await client.get("/api/v1/integrations/macos/apps", headers=headers)

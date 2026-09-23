@@ -46,7 +46,6 @@ from .macos import (
 )
 
 __all__ = [
-
     "BaseConnector",
     "BrowserClickTool",
     "BrowserConnector",

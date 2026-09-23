@@ -69,7 +69,9 @@ class MacOSListRunningAppsTool(BaseTool):
 # 2. macos.focus_app
 # -----------------------------------------------------------------------------
 class MacOSFocusAppInput(BaseModel):
-    app_name: str = Field(..., description="Name of the application to activate and bring to foreground.")
+    app_name: str = Field(
+        ..., description="Name of the application to activate and bring to foreground."
+    )
 
 
 class MacOSFocusAppOutput(BaseModel):
@@ -105,8 +107,12 @@ class MacOSFocusAppTool(BaseTool):
 # 3. macos.inspect_ui
 # -----------------------------------------------------------------------------
 class MacOSInspectUIInput(BaseModel):
-    app_name: str = Field(..., description="Target application name to inspect accessibility hierarchy for.")
-    max_depth: int = Field(default=3, description="Maximum tree depth to traverse (default 3, max 5).")
+    app_name: str = Field(
+        ..., description="Target application name to inspect accessibility hierarchy for."
+    )
+    max_depth: int = Field(
+        default=3, description="Maximum tree depth to traverse (default 3, max 5)."
+    )
 
 
 class MacOSInspectUIOutput(BaseModel):
@@ -191,7 +197,9 @@ class MacOSCaptureWindowTool(BaseTool):
 # -----------------------------------------------------------------------------
 class MacOSClickElementInput(BaseModel):
     app_name: str = Field(..., description="Target application name.")
-    role: str = Field(default="", description="UI element role (e.g. 'AXButton', 'AXMenuItem', 'AXPopUpButton').")
+    role: str = Field(
+        default="", description="UI element role (e.g. 'AXButton', 'AXMenuItem', 'AXPopUpButton')."
+    )
     title: str = Field(..., description="Title, label, or description of the UI element to click.")
 
 
@@ -218,7 +226,9 @@ class MacOSClickElementTool(BaseTool):
         params: MacOSClickElementInput,
         context: dict[str, Any] | None = None,
     ) -> MacOSClickElementOutput:
-        success = await engine.ax_click_element(params.app_name, role=params.role, title=params.title)
+        success = await engine.ax_click_element(
+            params.app_name, role=params.role, title=params.title
+        )
         return MacOSClickElementOutput(
             success=success,
             app_name=params.app_name,
@@ -262,7 +272,9 @@ class MacOSTypeTextTool(BaseTool):
         params: MacOSTypeTextInput,
         context: dict[str, Any] | None = None,
     ) -> MacOSTypeTextOutput:
-        success = await engine.ax_set_value(params.app_name, text=params.text, submit_key=params.submit_key)
+        success = await engine.ax_set_value(
+            params.app_name, text=params.text, submit_key=params.submit_key
+        )
         return MacOSTypeTextOutput(
             success=success,
             app_name=params.app_name,
@@ -276,7 +288,9 @@ class MacOSTypeTextTool(BaseTool):
 # -----------------------------------------------------------------------------
 class MacOSSendShortcutInput(BaseModel):
     app_name: str = Field(..., description="Target application name.")
-    key: str = Field(..., description="Primary key character or name (e.g., 'n', 's', 'return', 'space').")
+    key: str = Field(
+        ..., description="Primary key character or name (e.g., 'n', 's', 'return', 'space')."
+    )
     modifiers: list[str] = Field(
         ...,
         description="Modifier keys to apply, e.g. ['cmd'], ['cmd', 'shift'], ['alt'], ['ctrl'].",

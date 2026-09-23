@@ -184,7 +184,9 @@ class GitHubCreateIssueTool(BaseTool):
                 json={"title": params.title, "body": params.body},
             )
             if resp.status_code >= 400:
-                raise RuntimeError(f"Failed to create GitHub issue ({resp.status_code}): {resp.text}")
+                raise RuntimeError(
+                    f"Failed to create GitHub issue ({resp.status_code}): {resp.text}"
+                )
             data = resp.json()
             return GitHubCreateIssueOutput(
                 id=data.get("id", 0),

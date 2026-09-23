@@ -9,10 +9,11 @@ from services.api.nexus_api.knowledge.routes import knowledge_router
 from services.api.nexus_api.memory.routes import memory_router
 from services.api.nexus_api.policy.routes import policy_router
 from services.api.nexus_api.reversal.routes import reversal_router
+from services.api.nexus_api.routes.v1.integrations import integrations_router
+from services.api.nexus_api.routes.v1.triggers import triggers_router, watchers_router
 from services.api.nexus_api.sessions.routes import sessions_router
 from services.api.nexus_api.tasks.routes import tasks_router
 from services.api.nexus_api.tools.routes import tools_router
-from services.api.nexus_api.routes.v1.integrations import integrations_router
 
 v1_router = APIRouter(prefix="/api/v1")
 v1_router.include_router(auth_router)
@@ -28,12 +29,14 @@ v1_router.include_router(policy_router)
 v1_router.include_router(reversal_router)
 v1_router.include_router(tools_router)
 v1_router.include_router(integrations_router)
+v1_router.include_router(triggers_router)
+v1_router.include_router(watchers_router)
 
 
 @v1_router.get("/system/status")
 async def system_status():
     return {
         "status": "ready",
-        "phase": "phase_12_ambient_desktop",
+        "phase": "phase_14_autonomous_triggers",
         "supported_surfaces": ["dashboard", "ambient"],
     }

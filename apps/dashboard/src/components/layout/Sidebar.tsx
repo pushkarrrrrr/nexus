@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Terminal,
+  Zap,
 } from "lucide-react";
 
 interface NavItem {
@@ -63,6 +64,7 @@ const navGroups: NavGroup[] = [
         badge: "2 pending",
         badgeVariant: "warning",
       },
+      { name: "Triggers", href: "/triggers", icon: Zap, badge: "active", badgeVariant: "cyan" },
       { name: "Tools", href: "/tools", icon: Wrench },
       { name: "Integrations", href: "/integrations", icon: Globe },
       { name: "Audit Logs", href: "/audit", icon: History },
