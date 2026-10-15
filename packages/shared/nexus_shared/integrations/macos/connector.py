@@ -7,10 +7,16 @@ from packages.shared.nexus_shared.integrations.base import BaseConnector
 from packages.shared.nexus_shared.integrations.macos.permissions import check_macos_permissions
 from packages.shared.nexus_shared.integrations.macos.tools import (
     MacOSCaptureWindowTool,
+    MacOSClickCoordsTool,
     MacOSClickElementTool,
     MacOSFocusAppTool,
     MacOSInspectUITool,
     MacOSListRunningAppsTool,
+    MacOSListWindowsTool,
+    MacOSMouseDragTool,
+    MacOSPressKeyTool,
+    MacOSReadWindowContentTool,
+    MacOSScrollTool,
     MacOSSendShortcutTool,
     MacOSTypeTextTool,
 )
@@ -63,11 +69,11 @@ class MacOSConnector(BaseConnector):
             "status": status,
             "is_darwin": is_darwin,
             "permissions": perms,
-            "tool_count": 7,
+            "tool_count": 13,
         }
 
     def register_tools(self) -> list[BaseTool]:
-        """Return the 7 native macOS application control tools."""
+        """Return the 13 native macOS application control and window inspection tools."""
         return [
             MacOSListRunningAppsTool(),
             MacOSFocusAppTool(),
@@ -76,4 +82,10 @@ class MacOSConnector(BaseConnector):
             MacOSClickElementTool(),
             MacOSTypeTextTool(),
             MacOSSendShortcutTool(),
+            MacOSListWindowsTool(),
+            MacOSReadWindowContentTool(),
+            MacOSScrollTool(),
+            MacOSClickCoordsTool(),
+            MacOSMouseDragTool(),
+            MacOSPressKeyTool(),
         ]

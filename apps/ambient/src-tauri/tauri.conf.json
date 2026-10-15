@@ -10,18 +10,19 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
         "title": "NEXUS Ambient",
-        "width": 740,
-        "height": 480,
+        "width": 480,
+        "height": 260,
         "resizable": false,
         "fullscreen": false,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
-        "skipTaskbar": true,
+        "skipTaskbar": false,
         "center": false,
         "visible": true,
         "shadow": false

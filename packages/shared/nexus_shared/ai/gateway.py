@@ -213,7 +213,7 @@ class ModelGateway:
     ) -> Any:
         """Execute async provider operation with timeout and exponential backoff retry."""
         attempt = 0
-        backoff_sec = 0.5
+        backoff_sec = 0.1  # Start with 100ms; doubles on each retry (0.1 → 0.2 → 0.4)
 
         while True:
             try:

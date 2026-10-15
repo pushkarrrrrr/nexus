@@ -458,7 +458,7 @@ async def test_api_embed(auth_client):
     payload = {
         "texts": ["Embed this text", "And this text too"],
     }
-    res = await client.post("/api/v1/ai/embed", json=payload)
+    res = await client.post("/api/v1/ai/embed?provider=mock", json=payload)
     assert res.status_code == 200
     data = res.json()
 

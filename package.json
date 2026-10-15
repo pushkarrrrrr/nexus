@@ -11,7 +11,7 @@
     "dev": "./scripts/dev.sh",
     "dev:dashboard": "npm run --workspace=@nexus/dashboard dev",
     "dev:ambient": "npm run --workspace=@nexus/ambient dev",
-    "dev:tauri": "npm --workspace=@nexus/ambient exec -- tauri dev",
+    "dev:tauri": "pkill -f nexus-ambient 2>/dev/null || true; pkill -f 'vite.*5173' 2>/dev/null || true; npm --workspace=@nexus/ambient exec -- tauri dev",
     "typecheck": "npm run --workspaces --if-present typecheck",
     "lint": "npm run --workspaces --if-present lint"
   },

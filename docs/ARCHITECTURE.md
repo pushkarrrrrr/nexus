@@ -505,3 +505,86 @@ Host Operating System & Kernel Runtime
          ├── Dashboard Cockpit (`/triggers`): System health gauges, trigger rule management, anomaly log
          └── Ambient Desktop HUD: Real-time floating alert pill with warning banner for detected triggers
 ```
+
+---
+
+## 15. Autonomous Self-Correction, Dynamic Replanning & Error Recovery (Phase 15)
+
+```
+Task Execution Failure
+   │
+   ├── [ErrorClassifier (`packages/shared/nexus_shared/agents/recovery/classifier.py`)]
+   │     └── Categorizes runtime errors into canonical error taxonomies:
+   │           ├── `PARAM_INVALID`: Type errors, schema validation failures
+   │           ├── `POLICY_REJECTED`: Permission denial, sandboxing restriction
+   │           ├── `TIMEOUT`: Host or network deadline exceeded
+   │           ├── `RESOURCE_NOT_FOUND`: Missing file paths, 404 HTTP errors
+   │           ├── `ENVIRONMENT_ERROR`: Read-only filesystem, connection refused
+   │           └── `TOOL_FAILURE`: Subprocess crash, nonzero exit codes
+   │
+   ├── [SelfCorrectionReflector (`packages/shared/nexus_shared/agents/recovery/reflector.py`)]
+   │     ├── Structured LLM Diagnostic via Google Gemini
+   │     ├── Fallback heuristic reflection generator
+   │     └── Outputs `SelfCorrectionProposal`:
+   │           ├── Root cause diagnosis
+   │           ├── Strategy: `RETRY_MODIFIED_PARAMS`, `SUBSTITUTE_TOOL`, `INSERT_PREREQUISITE_STEPS`, `ROLLBACK_AND_ABORT`
+   │           └── List of `ProposedRecoveryStep` models
+   │
+   ├── [SelfCorrectionCoordinator (`packages/shared/nexus_shared/agents/recovery/coordinator.py`)]
+   │     ├── Bounded Replan Budget: Enforces `MAX_REPLANS_PER_PLAN = 3` limit per plan
+   │     │     └── If budget exceeded: Escalates to `ApprovalRequestModel` (Risk `HIGH`)
+   │     ├── Automated Dirty State Reversal:
+   │     │     └── Invokes `SnapshotManager.revert_action_snapshot()` to roll back mutations
+   │     └── Persists audit trail in `replan_records` table
+   │
+   ├── [DAGPatcher (`packages/shared/nexus_shared/agents/recovery/patcher.py`)]
+   │     ├── Dynamically splices recovery steps directly into active `ExecutionPlanModel`
+   │     ├── Rewires DAG topological dependencies and updates step indices
+   │     ├── Marks failed step as `SKIPPED`
+   │     └── Queues recovery steps as `PENDING` for immediate execution
+   │
+   ├── [REST API (`services/api/nexus_api/routes/v1/recovery.py`)]
+   │     ├── `GET /api/v1/plans/{plan_id}/reflections`: Full replan audit trail
+   │     ├── `POST /api/v1/plans/{plan_id}/reflections/diagnose`: Manual diagnostic reflection trigger
+   │     ├── `GET /api/v1/plans/reflections/recent`: Cross-plan reflection stream
+   │     └── `GET /api/v1/plans/recovery/stats`: System-wide recovery telemetry and success metrics
+   │
+   └── [Dashboard Surface (`apps/dashboard/app/recovery/page.tsx`)]
+         ├── Self-Correction & Dynamic Replanning Cockpit (`/recovery`)
+         ├── 6-Stage Interactive Recovery Simulator & Test Harness
+         ├── Side-by-Side DAG Comparison Visualizer (Original Fault Graph vs Spliced Recovery Graph)
+         └── Searchable & Filterable Reflection Ledger with Full Diagnostic Inspector
+```
+
+---
+
+## 16. macOS Ambient Voice & Screen Perception Engine (<70ms Fast Dispatch)
+
+```
+User Voice / Text Interaction
+   │
+   ├── [Perception & Audio Ingestion]
+   │     ├── Ambient Voice Orb: Continuous speech capture via Web Speech / MediaStream
+   │     ├── Fast Silence Endpointing: 500ms debounce timer saving ~1,000ms of browser silence lag
+   │     └── Multi-Turn Wake Word & Liquid Glass Animation System
+   │
+   ├── [Two-Tier Low-Latency Dispatcher (`voice_action_dispatcher.py`)]
+   │     │
+   │     ├── Tier 1: Fast Local OS Dispatch (<70ms, 0ms network latency)
+   │     │     ├── Screen Scrolling: `scroll(direction, amount)` via AppleScript/Quartz
+   │     │     ├── Screen Perception: `read_window_content()` via Accessibility tree JXA
+   │     │     ├── Window Listing: `list_windows()` via CoreGraphics `CGWindowListCopyWindowInfo`
+   │     │     ├── Keyboard & Mouse: `press_key(key)`, `click_coords(x, y)`
+   │     │     ├── Media & Apps: Spotify playback, YouTube tab reuse, Notes, WhatsApp drafts
+   │     │     └── Multi-Task Queue: Sequential execution of compound commands
+   │     │
+   │     └── Tier 2: Real-Time Gemini Semantic Fallback
+   │           ├── Natural-language conversational dialogue (English, Hindi, Hinglish)
+   │           ├── Unmapped or non-standard instructions
+   │           └── Structured action plan synthesis
+   │
+   └── [Native macOS Engine (`packages/shared/nexus_shared/computer/macos.py`)]
+         ├── Pure Python ctypes bindings to ApplicationServices & CoreGraphics
+         ├── Zero-dependency TCC accessibility permission checks
+         └── Non-blocking background text-to-speech with Apple Siri female voice (`say -v Tara`)
+```

@@ -13,11 +13,17 @@ from httpx import ASGITransport, AsyncClient
 
 from packages.shared.nexus_shared.integrations.macos import (
     MacOSCaptureWindowTool,
+    MacOSClickCoordsTool,
     MacOSClickElementTool,
     MacOSConnector,
     MacOSFocusAppTool,
     MacOSInspectUITool,
     MacOSListRunningAppsTool,
+    MacOSListWindowsTool,
+    MacOSMouseDragTool,
+    MacOSPressKeyTool,
+    MacOSReadWindowContentTool,
+    MacOSScrollTool,
     MacOSSendShortcutTool,
     MacOSTypeTextTool,
     check_macos_permissions,
@@ -547,13 +553,13 @@ async def test_macos_connector_lifecycle():
             health = await connector.health_check("user_123")
             assert health["provider"] == "macos"
             assert health["status"] == "healthy"
-            assert health["tool_count"] == 7
+            assert health["tool_count"] == 13
 
             disc = await connector.disconnect("user_123")
             assert disc is True
 
             tools = connector.register_tools()
-            assert len(tools) == 7
+            assert len(tools) == 13
 
 
 # =============================================================================
@@ -623,3 +629,149 @@ async def test_api_macos_endpoints(auth_user):
         resp = await client.post("/api/v1/integrations/macos/disconnect", headers=headers)
         assert resp.status_code == 200, resp.text
         assert resp.json()["disconnected"] is True
+
+
+# =============================================================================
+# 9. Window Perception and On-Screen Action Tool Tests
+# =============================================================================
+@pytest.mark.asyncio
+async def test_macos_list_windows_tool():
+    tool = MacOSListWindowsTool()
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.list_all_windows",
+        return_value=[
+            {
+                "id": 101,
+                "owner_name": "Google Chrome",
+                "name": "NEXUS Dashboard",
+                "layer": 0,
+                "pid": 501,
+                "bounds": {"x": 100.0, "y": 100.0, "width": 1200.0, "height": 800.0},
+                "is_onscreen": True,
+            },
+            {
+                "id": 102,
+                "owner_name": "Terminal",
+                "name": "zsh - nexus",
+                "layer": 0,
+                "pid": 502,
+                "bounds": {"x": 200.0, "y": 200.0, "width": 800.0, "height": 600.0},
+                "is_onscreen": True,
+            },
+        ],
+    ):
+        out = await tool.run("usr_test", tool.input_schema(on_screen_only=True))
+        assert out.count == 2
+        assert out.windows[0].owner_name == "Google Chrome"
+        assert out.windows[0].bounds.width == 1200.0
+        assert out.windows[1].name == "zsh - nexus"
+
+
+@pytest.mark.asyncio
+async def test_macos_read_window_content_tool():
+    tool = MacOSReadWindowContentTool()
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.read_window_content",
+        new_callable=AsyncMock,
+        return_value={
+            "app_name": "Notes",
+            "window_title": "Project Notes",
+            "text_content": "Sprint goals\nDeploy to production",
+            "elements": [
+                {
+                    "role": "AXStaticText",
+                    "text": "Sprint goals",
+                    "position": [10.0, 20.0],
+                    "size": [200.0, 30.0],
+                },
+                {
+                    "role": "AXStaticText",
+                    "text": "Deploy to production",
+                    "position": [10.0, 60.0],
+                    "size": [200.0, 30.0],
+                },
+            ],
+        },
+    ):
+        out = await tool.run("usr_test", tool.input_schema(app_name="Notes"))
+        assert out.app_name == "Notes"
+        assert out.window_title == "Project Notes"
+        assert "Sprint goals" in out.text_content
+        assert len(out.elements) == 2
+        assert out.elements[0].role == "AXStaticText"
+
+
+@pytest.mark.asyncio
+async def test_macos_scroll_tool():
+    tool = MacOSScrollTool()
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.post_scroll",
+        return_value=True,
+    ) as mock_scroll:
+        out = await tool.run(
+            "usr_test", tool.input_schema(direction="down", amount=8, x=500.0, y=300.0)
+        )
+        assert out.success is True
+        assert out.direction == "down"
+        assert out.amount == 8
+        assert "Scrolled down by 8 units" in out.message
+        mock_scroll.assert_called_once_with(delta_y=-8, delta_x=0, x=500.0, y=300.0)
+
+    # Test invalid direction
+    with pytest.raises(ValueError, match="Invalid scroll direction"):
+        await tool.run("usr_test", tool.input_schema(direction="diagonal"))
+
+
+@pytest.mark.asyncio
+async def test_macos_click_coords_tool():
+    tool = MacOSClickCoordsTool()
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.post_mouse_click_coords",
+        return_value=True,
+    ) as mock_click:
+        out = await tool.run(
+            "usr_test",
+            tool.input_schema(x=450.0, y=250.0, button="left", click_count=2),
+        )
+        assert out.success is True
+        assert out.x == 450.0
+        assert out.y == 250.0
+        assert out.click_count == 2
+        assert "Double-clicked left button" in out.message
+        mock_click.assert_called_once_with(
+            x=450.0, y=250.0, button="left", click_count=2
+        )
+
+
+@pytest.mark.asyncio
+async def test_macos_mouse_drag_tool():
+    tool = MacOSMouseDragTool()
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.post_mouse_drag",
+        return_value=True,
+    ) as mock_drag:
+        out = await tool.run(
+            "usr_test",
+            tool.input_schema(start_x=100.0, start_y=100.0, end_x=400.0, end_y=400.0, steps=5),
+        )
+        assert out.success is True
+        assert out.start_x == 100.0
+        assert out.end_x == 400.0
+        assert "Dragged mouse" in out.message
+        mock_drag.assert_called_once_with(
+            start_x=100.0, start_y=100.0, end_x=400.0, end_y=400.0, steps=5
+        )
+
+
+@pytest.mark.asyncio
+async def test_macos_press_key_tool():
+    tool = MacOSPressKeyTool()
+    with patch(
+        "packages.shared.nexus_shared.integrations.macos.engine.post_key_press",
+        return_value=True,
+    ) as mock_key:
+        out = await tool.run("usr_test", tool.input_schema(key="page_down"))
+        assert out.success is True
+        assert out.key == "page_down"
+        assert "Pressed key 'page_down'" in out.message
+        mock_key.assert_called_once_with("page_down")

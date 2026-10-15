@@ -518,6 +518,15 @@ class OrchestratorAgent(BaseAgent):
                         plan_id=plan.id,
                         db=db,
                     )
+                    if plan.status == "awaiting_approval":
+                        task.status = TaskStatus.AWAITING_APPROVAL.value
+                        await db.commit()
+                        return (
+                            plan,
+                            "Task paused: Recovery replan requires human approval",
+                            messages,
+                        )
+
                     if event_callback:
                         try:
                             await event_callback("plan_updated", plan)

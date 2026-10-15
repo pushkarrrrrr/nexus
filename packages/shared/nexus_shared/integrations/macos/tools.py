@@ -335,3 +335,370 @@ class MacOSSendShortcutTool(BaseTool):
             modifiers=params.modifiers,
             message=f"Dispatched shortcut '{mod_str}+{params.key}' to {params.app_name}.",
         )
+
+
+# -----------------------------------------------------------------------------
+# 8. macos.list_windows
+# -----------------------------------------------------------------------------
+class MacOSWindowBounds(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class MacOSWindowInfo(BaseModel):
+    id: int
+    owner_name: str
+    name: str
+    layer: int
+    pid: int
+    bounds: MacOSWindowBounds
+    is_onscreen: bool
+
+
+class MacOSListWindowsInput(BaseModel):
+    on_screen_only: bool = Field(
+        default=True,
+        description="Filter to windows that are currently visible on screen (default True).",
+    )
+    filter_app: str | None = Field(
+        default=None,
+        description="Optional filter by application name (case-insensitive).",
+    )
+
+
+class MacOSListWindowsOutput(BaseModel):
+    windows: list[MacOSWindowInfo]
+    count: int
+
+
+class MacOSListWindowsTool(BaseTool):
+    name = "macos.list_windows"
+    description = (
+        "Enumerate all open desktop windows across applications with window ID, title, "
+        "owner application, layer, and pixel bounding coordinates."
+    )
+    input_schema = MacOSListWindowsInput
+    output_schema = MacOSListWindowsOutput
+    required_capability = "macos.list_windows"
+    default_risk_level = "LOW"
+    timeout_seconds = 10.0
+
+    async def run(
+        self,
+        user_id: str,
+        params: MacOSListWindowsInput,
+        context: dict[str, Any] | None = None,
+    ) -> MacOSListWindowsOutput:
+        raw_windows = engine.list_all_windows(
+            on_screen_only=params.on_screen_only,
+            filter_app=params.filter_app,
+        )
+        windows: list[MacOSWindowInfo] = [
+            MacOSWindowInfo(
+                id=w.get("id", 0),
+                owner_name=w.get("owner_name", ""),
+                name=w.get("name", ""),
+                layer=w.get("layer", 0),
+                pid=w.get("pid", 0),
+                bounds=MacOSWindowBounds(
+                    x=w.get("bounds", {}).get("x", 0.0),
+                    y=w.get("bounds", {}).get("y", 0.0),
+                    width=w.get("bounds", {}).get("width", 0.0),
+                    height=w.get("bounds", {}).get("height", 0.0),
+                ),
+                is_onscreen=w.get("is_onscreen", True),
+            )
+            for w in raw_windows
+        ]
+        return MacOSListWindowsOutput(windows=windows, count=len(windows))
+
+
+# -----------------------------------------------------------------------------
+# 9. macos.read_window_content
+# -----------------------------------------------------------------------------
+class MacOSReadWindowContentInput(BaseModel):
+    app_name: str | None = Field(
+        default=None,
+        description="Application to inspect. If null, inspects the current frontmost application.",
+    )
+    window_index: int = Field(
+        default=0,
+        description="Index of window to inspect if multiple are open (0 is frontmost).",
+    )
+    max_depth: int = Field(
+        default=4,
+        description="Maximum accessibility hierarchy traversal depth.",
+    )
+
+
+class MacOSUIElementSummary(BaseModel):
+    role: str
+    text: str
+    position: list[float]
+    size: list[float]
+
+
+class MacOSReadWindowContentOutput(BaseModel):
+    app_name: str
+    window_title: str
+    text_content: str
+    elements: list[MacOSUIElementSummary]
+
+
+class MacOSReadWindowContentTool(BaseTool):
+    name = "macos.read_window_content"
+    description = (
+        "Extract visible text lines, labels, inputs, and UI elements from a window in reading order "
+        "via native accessibility inspection."
+    )
+    input_schema = MacOSReadWindowContentInput
+    output_schema = MacOSReadWindowContentOutput
+    required_capability = "macos.read_window_content"
+    default_risk_level = "LOW"
+    timeout_seconds = 20.0
+
+    async def run(
+        self,
+        user_id: str,
+        params: MacOSReadWindowContentInput,
+        context: dict[str, Any] | None = None,
+    ) -> MacOSReadWindowContentOutput:
+        res = await engine.read_window_content(
+            app_name=params.app_name,
+            window_index=params.window_index,
+            max_depth=params.max_depth,
+        )
+        elems: list[MacOSUIElementSummary] = [
+            MacOSUIElementSummary(
+                role=e.get("role", ""),
+                text=e.get("text", ""),
+                position=[float(p) for p in e.get("position", [0, 0])],
+                size=[float(s) for s in e.get("size", [0, 0])],
+            )
+            for e in res.get("elements", [])
+        ]
+        return MacOSReadWindowContentOutput(
+            app_name=res.get("app_name", params.app_name or ""),
+            window_title=res.get("window_title", ""),
+            text_content=res.get("text_content", ""),
+            elements=elems,
+        )
+
+
+# -----------------------------------------------------------------------------
+# 10. macos.scroll
+# -----------------------------------------------------------------------------
+class MacOSScrollInput(BaseModel):
+    direction: str = Field(
+        default="down",
+        description="Direction to scroll: 'up', 'down', 'left', or 'right'.",
+    )
+    amount: int = Field(
+        default=5,
+        description="Scroll amount in lines (default 5).",
+    )
+    x: float | None = Field(
+        default=None,
+        description="Optional horizontal coordinate where scroll should occur.",
+    )
+    y: float | None = Field(
+        default=None,
+        description="Optional vertical coordinate where scroll should occur.",
+    )
+
+
+class MacOSScrollOutput(BaseModel):
+    success: bool
+    direction: str
+    amount: int
+    message: str
+
+
+class MacOSScrollTool(BaseTool):
+    name = "macos.scroll"
+    description = "Synthesize scroll wheel events on screen (up, down, left, right)."
+    input_schema = MacOSScrollInput
+    output_schema = MacOSScrollOutput
+    required_capability = "macos.scroll"
+    default_risk_level = "HIGH"
+    timeout_seconds = 10.0
+
+    async def run(
+        self,
+        user_id: str,
+        params: MacOSScrollInput,
+        context: dict[str, Any] | None = None,
+    ) -> MacOSScrollOutput:
+        d = params.direction.lower().strip()
+        delta_y = 0
+        delta_x = 0
+        if d == "down":
+            delta_y = -abs(params.amount)
+        elif d == "up":
+            delta_y = abs(params.amount)
+        elif d == "left":
+            delta_x = -abs(params.amount)
+        elif d == "right":
+            delta_x = abs(params.amount)
+        else:
+            raise ValueError(f"Invalid scroll direction: '{params.direction}'")
+
+        success = engine.post_scroll(delta_y=delta_y, delta_x=delta_x, x=params.x, y=params.y)
+        return MacOSScrollOutput(
+            success=success,
+            direction=d,
+            amount=params.amount,
+            message=f"Scrolled {d} by {params.amount} units.",
+        )
+
+
+# -----------------------------------------------------------------------------
+# 11. macos.click_coords
+# -----------------------------------------------------------------------------
+class MacOSClickCoordsInput(BaseModel):
+    x: float = Field(..., description="Screen X pixel coordinate.")
+    y: float = Field(..., description="Screen Y pixel coordinate.")
+    button: str = Field(
+        default="left", description="Mouse button: 'left' or 'right' (default 'left')."
+    )
+    click_count: int = Field(
+        default=1, description="Number of clicks: 1 for single-click, 2 for double-click."
+    )
+
+
+class MacOSClickCoordsOutput(BaseModel):
+    success: bool
+    x: float
+    y: float
+    button: str
+    click_count: int
+    message: str
+
+
+class MacOSClickCoordsTool(BaseTool):
+    name = "macos.click_coords"
+    description = "Click or double-click at explicit screen pixel coordinates (X, Y)."
+    input_schema = MacOSClickCoordsInput
+    output_schema = MacOSClickCoordsOutput
+    required_capability = "macos.click_coords"
+    default_risk_level = "HIGH"
+    timeout_seconds = 10.0
+
+    async def run(
+        self,
+        user_id: str,
+        params: MacOSClickCoordsInput,
+        context: dict[str, Any] | None = None,
+    ) -> MacOSClickCoordsOutput:
+        success = engine.post_mouse_click_coords(
+            x=params.x,
+            y=params.y,
+            button=params.button,
+            click_count=params.click_count,
+        )
+        action_name = "Double-clicked" if params.click_count == 2 else "Clicked"
+        return MacOSClickCoordsOutput(
+            success=success,
+            x=params.x,
+            y=params.y,
+            button=params.button,
+            click_count=params.click_count,
+            message=f"{action_name} {params.button} button at ({params.x}, {params.y}).",
+        )
+
+
+# -----------------------------------------------------------------------------
+# 12. macos.mouse_drag
+# -----------------------------------------------------------------------------
+class MacOSMouseDragInput(BaseModel):
+    start_x: float = Field(..., description="Starting screen X coordinate.")
+    start_y: float = Field(..., description="Starting screen Y coordinate.")
+    end_x: float = Field(..., description="Ending screen X coordinate.")
+    end_y: float = Field(..., description="Ending screen Y coordinate.")
+    steps: int = Field(
+        default=10, description="Number of intermediate drag steps for smooth motion."
+    )
+
+
+class MacOSMouseDragOutput(BaseModel):
+    success: bool
+    start_x: float
+    start_y: float
+    end_x: float
+    end_y: float
+    message: str
+
+
+class MacOSMouseDragTool(BaseTool):
+    name = "macos.mouse_drag"
+    description = "Drag from (start_x, start_y) to (end_x, end_y) synthesizing native mouse drag events."
+    input_schema = MacOSMouseDragInput
+    output_schema = MacOSMouseDragOutput
+    required_capability = "macos.mouse_drag"
+    default_risk_level = "HIGH"
+    timeout_seconds = 15.0
+
+    async def run(
+        self,
+        user_id: str,
+        params: MacOSMouseDragInput,
+        context: dict[str, Any] | None = None,
+    ) -> MacOSMouseDragOutput:
+        success = engine.post_mouse_drag(
+            start_x=params.start_x,
+            start_y=params.start_y,
+            end_x=params.end_x,
+            end_y=params.end_y,
+            steps=params.steps,
+        )
+        return MacOSMouseDragOutput(
+            success=success,
+            start_x=params.start_x,
+            start_y=params.start_y,
+            end_x=params.end_x,
+            end_y=params.end_y,
+            message=f"Dragged mouse from ({params.start_x}, {params.start_y}) to ({params.end_x}, {params.end_y}).",
+        )
+
+
+# -----------------------------------------------------------------------------
+# 13. macos.press_key
+# -----------------------------------------------------------------------------
+class MacOSPressKeyInput(BaseModel):
+    key: str = Field(
+        ...,
+        description="Key to press: e.g. 'page_down', 'page_up', 'space', 'return', 'escape', 'up', 'down', 'left', 'right'.",
+    )
+
+
+class MacOSPressKeyOutput(BaseModel):
+    success: bool
+    key: str
+    message: str
+
+
+class MacOSPressKeyTool(BaseTool):
+    name = "macos.press_key"
+    description = (
+        "Press a single navigation or functional key on the keyboard (e.g. page down, page up, space, return, escape)."
+    )
+    input_schema = MacOSPressKeyInput
+    output_schema = MacOSPressKeyOutput
+    required_capability = "macos.press_key"
+    default_risk_level = "HIGH"
+    timeout_seconds = 10.0
+
+    async def run(
+        self,
+        user_id: str,
+        params: MacOSPressKeyInput,
+        context: dict[str, Any] | None = None,
+    ) -> MacOSPressKeyOutput:
+        success = engine.post_key_press(params.key)
+        return MacOSPressKeyOutput(
+            success=success,
+            key=params.key,
+            message=f"Pressed key '{params.key}'.",
+        )

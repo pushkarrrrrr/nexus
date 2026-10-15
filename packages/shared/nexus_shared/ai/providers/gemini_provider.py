@@ -33,21 +33,28 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class GeminiProvider(LLMProvider, EmbeddingProvider):
-    """Google Gemini API Provider."""
+    """Google Gemini API Provider with persistent HTTP connection pooling."""
 
     def __init__(
         self,
         api_key: str = "",
         base_url: str = "https://generativelanguage.googleapis.com/v1beta",
-        default_model: str = "gemini-1.5-pro",
+        default_model: str = "gemini-3.5-flash-lite",
         default_embedding_model: str = "text-embedding-004",
-        timeout_sec: float = 60.0,
+        timeout_sec: float = 30.0,
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.default_model = default_model
         self.default_embedding_model = default_embedding_model
         self.timeout_sec = timeout_sec
+        # Persistent shared client — avoids TCP handshake + TLS overhead on every request.
+        # Limits: 20 keepalive, 100 max connections to Google's API.
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout_sec, connect=5.0),
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+            http2=True,  # HTTP/2 multiplexing for lower latency
+        )
 
     @property
     def provider_name(self) -> str:
@@ -97,19 +104,42 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
             }
 
         clean_model = model_name.removeprefix("models/")
-        url = f"{self.base_url}/models/{clean_model}:generateContent"
+        # Fallback models — only used when the primary model is unavailable (404).
+        # Do NOT fall through on auth/rate-limit errors to avoid masking real issues.
+        fallback_models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash"]
+        candidate_models = [clean_model] + [m for m in fallback_models if m != clean_model]
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_sec) as client:
-                res = await client.post(
+        last_exc: Exception | None = None
+        data: dict[str, Any] = {}
+        for m in candidate_models:
+            url = f"{self.base_url}/models/{m}:generateContent"
+            try:
+                res = await self._client.post(
                     url,
                     headers=self._get_headers(),
                     json=payload,
                 )
+                # Only retry on model-not-found (404) — all other errors propagate immediately.
+                if res.status_code == 404:
+                    last_exc = httpx.HTTPStatusError(
+                        f"Model {m} not found", request=res.request, response=res
+                    )
+                    continue
                 res.raise_for_status()
                 data = res.json()
-        except Exception as exc:
-            raise self._map_http_error(exc) from exc
+                model_name = m
+                last_exc = None
+                break
+            except httpx.HTTPStatusError as http_err:
+                if http_err.response.status_code == 404:
+                    last_exc = http_err
+                    continue
+                raise self._map_http_error(http_err) from http_err
+            except Exception as exc:
+                raise self._map_http_error(exc) from exc
+
+        if last_exc is not None and not data:
+            raise self._map_http_error(last_exc) from last_exc
 
         candidates = data.get("candidates", [])
         content = ""
@@ -165,15 +195,12 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
         url = f"{self.base_url}/models/{clean_model}:streamGenerateContent?alt=sse"
 
         try:
-            async with (
-                httpx.AsyncClient(timeout=self.timeout_sec) as client,
-                client.stream(
-                    "POST",
-                    url,
-                    headers=self._get_headers(),
-                    json=payload,
-                ) as response,
-            ):
+            async with self._client.stream(
+                "POST",
+                url,
+                headers=self._get_headers(),
+                json=payload,
+            ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if not line or not line.startswith("data: "):
@@ -251,14 +278,13 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
         ]
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_sec) as client:
-                res = await client.post(
-                    url,
-                    headers=self._get_headers(),
-                    json={"requests": requests},
-                )
-                res.raise_for_status()
-                data = res.json()
+            res = await self._client.post(
+                url,
+                headers=self._get_headers(),
+                json={"requests": requests},
+            )
+            res.raise_for_status()
+            data = res.json()
         except Exception as exc:
             raise self._map_http_error(exc) from exc
 

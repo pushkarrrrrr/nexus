@@ -18,7 +18,15 @@ class NexusSettings(BaseSettings):
     api_workers: int = Field(default=1, alias="API_WORKERS")
 
     cors_origins: list[str] | str = Field(
-        default=["http://localhost:3000", "http://localhost:5173", "tauri://localhost"],
+        default=[
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
+            "tauri://localhost",
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+        ],
         alias="CORS_ORIGINS",
     )
 
@@ -54,6 +62,11 @@ class NexusSettings(BaseSettings):
     )
     session_expiry_hours: int = Field(default=24, alias="SESSION_EXPIRY_HOURS")
     auto_approve_low_risk: bool = Field(default=True, alias="AUTO_APPROVE_LOW_RISK")
+    nexus_demo_mode: bool = Field(
+        default=False,
+        alias="NEXUS_DEMO_MODE",
+        description="When True in non-production environments, allows demo session fallback without credentials for live presentation walkthroughs.",
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod

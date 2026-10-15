@@ -98,3 +98,76 @@ class ComputerControlAdapter(ABC):
     ) -> dict[str, Any]:
         """Safely execute a controlled subprocess with strict timeouts and buffer caps."""
         ...
+
+    async def close_application(self, app_name: str) -> dict[str, Any]:
+        """Close or quit an application on the host OS."""
+        raise NotImplementedError("close_application is not implemented on this adapter")
+
+    async def search_web(self, query: str) -> dict[str, Any]:
+        """Search the web for a query in the default browser."""
+        import urllib.parse
+        encoded = urllib.parse.quote_plus(query.strip())
+        return await self.open_url(f"https://www.google.com/search?q={encoded}")
+
+    async def search_youtube(self, query: str) -> dict[str, Any]:
+        """Search and play a video on YouTube in the default browser."""
+        import urllib.parse
+        encoded = urllib.parse.quote_plus(query.strip())
+        return await self.open_url(f"https://www.youtube.com/results?search_query={encoded}")
+
+    async def control_media(self, action: str) -> dict[str, Any]:
+        """Perform a media or playback control action (play_pause, next, previous, etc.)."""
+        raise NotImplementedError("control_media is not implemented on this adapter")
+
+    async def spotify_play(self, query: str = "") -> dict[str, Any]:
+        """Play a specific track/artist on Spotify or resume playback."""
+        raise NotImplementedError("spotify_play is not implemented on this adapter")
+
+    async def spotify_control(self, action: str) -> dict[str, Any]:
+        """Control Spotify playback (next, previous, play_pause, pause, play)."""
+        raise NotImplementedError("spotify_control is not implemented on this adapter")
+
+    async def create_note(self, title: str, body: str) -> dict[str, Any]:
+        """Create a new note in the native Notes application."""
+        raise NotImplementedError("create_note is not implemented on this adapter")
+
+    async def whatsapp_draft_message(self, contact: str, message: str) -> dict[str, Any]:
+        """Stage a message in WhatsApp for a specific contact without sending it."""
+        raise NotImplementedError("whatsapp_draft_message is not implemented on this adapter")
+
+    async def whatsapp_confirm_send(self) -> dict[str, Any]:
+        """Confirm and send the staged WhatsApp message."""
+        raise NotImplementedError("whatsapp_confirm_send is not implemented on this adapter")
+
+    async def whatsapp_cancel_send(self) -> dict[str, Any]:
+        """Cancel the staged WhatsApp message."""
+        raise NotImplementedError("whatsapp_cancel_send is not implemented on this adapter")
+
+    async def scroll(self, direction: str = "down", amount: int = 5, delta_x: int = 0) -> dict[str, Any]:
+        """Perform scrolling in the active window."""
+        raise NotImplementedError("scroll is not implemented on this adapter")
+
+    async def click_coords(self, x: int, y: int, button: str = "left", click_count: int = 1) -> dict[str, Any]:
+        """Click at specific screen coordinates."""
+        raise NotImplementedError("click_coords is not implemented on this adapter")
+
+    async def mouse_drag(self, start_x: int, start_y: int, end_x: int, end_y: int, steps: int = 15) -> dict[str, Any]:
+        """Drag mouse between two screen coordinates."""
+        raise NotImplementedError("mouse_drag is not implemented on this adapter")
+
+    async def press_key(self, key: str) -> dict[str, Any]:
+        """Press a keyboard key."""
+        raise NotImplementedError("press_key is not implemented on this adapter")
+
+    async def list_windows(self, on_screen_only: bool = True, filter_app: str | None = None) -> list[dict[str, Any]]:
+        """List open application windows."""
+        raise NotImplementedError("list_windows is not implemented on this adapter")
+
+    async def read_window_content(self, app_name: str | None = None, window_index: int = 1, max_depth: int = 4) -> dict[str, Any]:
+        """Read UI elements and text content from a window."""
+        raise NotImplementedError("read_window_content is not implemented on this adapter")
+
+    async def get_frontmost_app(self) -> str:
+        """Get the name of the currently active frontmost application."""
+        raise NotImplementedError("get_frontmost_app is not implemented on this adapter")
+

@@ -27,6 +27,10 @@ MODEL_PRICING_CATALOG: dict[str, ModelPrice] = {
     "claude-3-opus": ModelPrice(input_per_million=15.00, output_per_million=75.00),
     "claude-3-haiku": ModelPrice(input_per_million=0.25, output_per_million=1.25),
     # Google Gemini Models
+    "gemini-3.5-flash-lite": ModelPrice(input_per_million=0.075, output_per_million=0.30),
+    "gemini-3.5-flash": ModelPrice(input_per_million=0.10, output_per_million=0.40),
+    "gemini-3.1-flash-lite": ModelPrice(input_per_million=0.075, output_per_million=0.30),
+    "gemini-2.5-flash": ModelPrice(input_per_million=0.075, output_per_million=0.30),
     "gemini-1.5-pro": ModelPrice(input_per_million=3.50, output_per_million=10.50),
     "gemini-1.5-flash": ModelPrice(input_per_million=0.075, output_per_million=0.30),
     # Local & Mock Models (Zero direct API charge)

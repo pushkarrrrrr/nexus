@@ -29,14 +29,29 @@ class CGPoint(ctypes.Structure):
     _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
 
 
+class CGRect(ctypes.Structure):
+    _fields_ = [
+        ("x", ctypes.c_double),
+        ("y", ctypes.c_double),
+        ("width", ctypes.c_double),
+        ("height", ctypes.c_double),
+    ]
+
+
 # CGEvent constants
 kCGSessionEventTap = 1
 kCGEventLeftMouseDown = 1
 kCGEventLeftMouseUp = 2
 kCGEventRightMouseDown = 3
 kCGEventRightMouseUp = 4
+kCGEventMouseMoved = 5
+kCGEventLeftMouseDragged = 6
+kCGEventRightMouseDragged = 7
 kCGMouseButtonLeft = 0
 kCGMouseButtonRight = 1
+kCGMouseEventClickState = 1
+kCGScrollEventUnitPixel = 0
+kCGScrollEventUnitLine = 1
 
 kCGEventFlagMaskCommand = 0x00100000
 kCGEventFlagMaskShift = 0x00020000
@@ -103,6 +118,12 @@ KEY_CODES: dict[str, int] = {
     "right": 124,
     "down": 125,
     "up": 126,
+    "page_down": 121,
+    "pagedown": 121,
+    "page_up": 116,
+    "pageup": 116,
+    "home": 115,
+    "end": 119,
 }
 
 _cg_lib = None
@@ -476,6 +497,171 @@ def post_mouse_click(x: float, y: float, button: str = "left") -> bool:
     return True
 
 
+def post_mouse_click_coords(
+    x: float, y: float, button: str = "left", click_count: int = 1
+) -> bool:
+    """Synthesize mouse click events at explicit screen coordinates (x, y)."""
+    cg, cf = _load_macos_frameworks()
+    if not cg:
+        raise RuntimeError("CoreGraphics framework is not available.")
+
+    point = CGPoint(x=x, y=y)
+    is_left = button.lower() == "left"
+    down_type = kCGEventLeftMouseDown if is_left else kCGEventRightMouseDown
+    up_type = kCGEventLeftMouseUp if is_left else kCGEventRightMouseUp
+    mouse_btn = kCGMouseButtonLeft if is_left else kCGMouseButtonRight
+
+    cg.CGEventCreateMouseEvent.restype = ctypes.c_void_p
+    cg.CGEventCreateMouseEvent.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        CGPoint,
+        ctypes.c_uint32,
+    ]
+    cg.CGEventSetIntegerValueField.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int64]
+    cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+
+    for c in range(1, max(click_count, 1) + 1):
+        event_down = cg.CGEventCreateMouseEvent(None, down_type, point, mouse_btn)
+        if not event_down:
+            return False
+        cg.CGEventSetIntegerValueField(event_down, kCGMouseEventClickState, c)
+        cg.CGEventPost(kCGSessionEventTap, event_down)
+
+        event_up = cg.CGEventCreateMouseEvent(None, up_type, point, mouse_btn)
+        if not event_up:
+            if cf and hasattr(cf, "CFRelease"):
+                cf.CFRelease(event_down)
+            return False
+        cg.CGEventSetIntegerValueField(event_up, kCGMouseEventClickState, c)
+        cg.CGEventPost(kCGSessionEventTap, event_up)
+
+        if cf and hasattr(cf, "CFRelease"):
+            cf.CFRelease(event_down)
+            cf.CFRelease(event_up)
+
+    return True
+
+
+def post_mouse_drag(
+    start_x: float, start_y: float, end_x: float, end_y: float, steps: int = 10
+) -> bool:
+    """Synthesize a smooth mouse drag from (start_x, start_y) to (end_x, end_y)."""
+    cg, cf = _load_macos_frameworks()
+    if not cg:
+        raise RuntimeError("CoreGraphics framework is not available.")
+
+    cg.CGEventCreateMouseEvent.restype = ctypes.c_void_p
+    cg.CGEventCreateMouseEvent.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        CGPoint,
+        ctypes.c_uint32,
+    ]
+    cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+
+    start_pt = CGPoint(x=start_x, y=start_y)
+    down_evt = cg.CGEventCreateMouseEvent(None, kCGEventLeftMouseDown, start_pt, kCGMouseButtonLeft)
+    if not down_evt:
+        return False
+    cg.CGEventPost(kCGSessionEventTap, down_evt)
+    if cf and hasattr(cf, "CFRelease"):
+        cf.CFRelease(down_evt)
+
+    num_steps = max(steps, 2)
+    for i in range(1, num_steps + 1):
+        cur_x = start_x + (end_x - start_x) * (i / num_steps)
+        cur_y = start_y + (end_y - start_y) * (i / num_steps)
+        step_pt = CGPoint(x=cur_x, y=cur_y)
+        drag_evt = cg.CGEventCreateMouseEvent(None, kCGEventLeftMouseDragged, step_pt, kCGMouseButtonLeft)
+        if drag_evt:
+            cg.CGEventPost(kCGSessionEventTap, drag_evt)
+            if cf and hasattr(cf, "CFRelease"):
+                cf.CFRelease(drag_evt)
+
+    end_pt = CGPoint(x=end_x, y=end_y)
+    up_evt = cg.CGEventCreateMouseEvent(None, kCGEventLeftMouseUp, end_pt, kCGMouseButtonLeft)
+    if up_evt:
+        cg.CGEventPost(kCGSessionEventTap, up_evt)
+        if cf and hasattr(cf, "CFRelease"):
+            cf.CFRelease(up_evt)
+
+    return True
+
+
+def post_scroll(
+    delta_y: int, delta_x: int = 0, x: float | None = None, y: float | None = None
+) -> bool:
+    """Synthesize scroll wheel events on screen. Positive delta_y scrolls UP, negative scrolls DOWN."""
+    cg, cf = _load_macos_frameworks()
+    if not cg:
+        raise RuntimeError("CoreGraphics framework is not available.")
+
+    # Move cursor first if coordinates provided
+    if x is not None and y is not None:
+        cg.CGEventCreateMouseEvent.restype = ctypes.c_void_p
+        cg.CGEventCreateMouseEvent.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            CGPoint,
+            ctypes.c_uint32,
+        ]
+        cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+        move_evt = cg.CGEventCreateMouseEvent(None, kCGEventMouseMoved, CGPoint(x=x, y=y), 0)
+        if move_evt:
+            cg.CGEventPost(kCGSessionEventTap, move_evt)
+            if cf and hasattr(cf, "CFRelease"):
+                cf.CFRelease(move_evt)
+
+    cg.CGEventCreateScrollWheelEvent.restype = ctypes.c_void_p
+    cg.CGEventCreateScrollWheelEvent.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_int32,
+    ]
+    cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+
+    # Create vertical scroll event (kCGScrollEventUnitLine = 1)
+    evt = cg.CGEventCreateScrollWheelEvent(None, kCGScrollEventUnitLine, 1, int(delta_y))
+    if not evt:
+        return False
+
+    cg.CGEventPost(kCGSessionEventTap, evt)
+    if cf and hasattr(cf, "CFRelease"):
+        cf.CFRelease(evt)
+
+    return True
+
+
+def post_key_press(key: str) -> bool:
+    """Dispatches a hardware key press (down then up) for navigation and functional keys."""
+    cg, cf = _load_macos_frameworks()
+    if not cg:
+        raise RuntimeError("CoreGraphics framework is not available.")
+
+    key_lower = key.lower().strip()
+    key_code = KEY_CODES.get(key_lower)
+    if key_code is None:
+        raise ValueError(f"Unknown key: '{key}'")
+
+    cg.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
+    cg.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint16, ctypes.c_bool]
+    cg.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+
+    down_evt = cg.CGEventCreateKeyboardEvent(None, key_code, True)
+    cg.CGEventPost(kCGSessionEventTap, down_evt)
+
+    up_evt = cg.CGEventCreateKeyboardEvent(None, key_code, False)
+    cg.CGEventPost(kCGSessionEventTap, up_evt)
+
+    if cf and hasattr(cf, "CFRelease"):
+        cf.CFRelease(down_evt)
+        cf.CFRelease(up_evt)
+
+    return True
+
+
 def post_keyboard_string(text: str, submit_key: str | None = None) -> bool:
     """Synthesize keyboard unicode input events using CoreGraphics."""
     cg, cf = _load_macos_frameworks()
@@ -692,3 +878,222 @@ async def capture_window_image(app_name: str, window_id: int | None = None) -> d
                 os.remove(tmp_path)
             except OSError:
                 pass
+
+
+def list_all_windows(
+    on_screen_only: bool = True, filter_app: str | None = None
+) -> list[dict[str, Any]]:
+    """List open windows across all running desktop applications via CoreGraphics."""
+    cg, cf = _load_macos_frameworks()
+    if not cg or not cf:
+        return []
+
+    try:
+        cg.CGWindowListCopyWindowInfo.restype = ctypes.c_void_p
+        cg.CGWindowListCopyWindowInfo.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+
+        option = 1 if on_screen_only else 0
+        arr = cg.CGWindowListCopyWindowInfo(option, 0)
+        if not arr:
+            return []
+
+        cf.CFArrayGetCount.restype = ctypes.c_long
+        cf.CFArrayGetCount.argtypes = [ctypes.c_void_p]
+        cf.CFArrayGetValueAtIndex.restype = ctypes.c_void_p
+        cf.CFArrayGetValueAtIndex.argtypes = [ctypes.c_void_p, ctypes.c_long]
+        cf.CFStringCreateWithCString.restype = ctypes.c_void_p
+        cf.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
+        cf.CFDictionaryGetValue.restype = ctypes.c_void_p
+        cf.CFDictionaryGetValue.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        cf.CFNumberGetValue.restype = ctypes.c_bool
+        cf.CFNumberGetValue.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
+        cf.CFStringGetCString.restype = ctypes.c_bool
+        cf.CFStringGetCString.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_long,
+            ctypes.c_uint32,
+        ]
+
+        cg.CGRectMakeWithDictionaryRepresentation.restype = ctypes.c_bool
+        cg.CGRectMakeWithDictionaryRepresentation.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(CGRect),
+        ]
+
+        kCFStringEncodingUTF8 = 0x08000100
+
+        def _get_str(d: Any, key_str: str) -> str:
+            k = cf.CFStringCreateWithCString(None, key_str.encode("utf-8"), kCFStringEncodingUTF8)
+            v = cf.CFDictionaryGetValue(d, k)
+            cf.CFRelease(k)
+            if not v:
+                return ""
+            buf = ctypes.create_string_buffer(512)
+            if cf.CFStringGetCString(v, buf, 512, kCFStringEncodingUTF8):
+                return buf.value.decode("utf-8", errors="ignore")
+            return ""
+
+        def _get_int(d: Any, key_str: str) -> int:
+            k = cf.CFStringCreateWithCString(None, key_str.encode("utf-8"), kCFStringEncodingUTF8)
+            v = cf.CFDictionaryGetValue(d, k)
+            cf.CFRelease(k)
+            if not v:
+                return 0
+            val = ctypes.c_int64(0)
+            cf.CFNumberGetValue(v, 4, ctypes.byref(val))
+            return val.value
+
+        kBoundsKey = cf.CFStringCreateWithCString(None, b"kCGWindowBounds", kCFStringEncodingUTF8)
+
+        count = cf.CFArrayGetCount(arr)
+        windows: list[dict[str, Any]] = []
+        filter_lower = filter_app.lower() if filter_app else None
+
+        for i in range(count):
+            d = cf.CFArrayGetValueAtIndex(arr, i)
+            owner = _get_str(d, "kCGWindowOwnerName")
+            if filter_lower and filter_lower not in owner.lower():
+                continue
+
+            win_id = _get_int(d, "kCGWindowNumber")
+            name = _get_str(d, "kCGWindowName")
+            layer = _get_int(d, "kCGWindowLayer")
+            pid = _get_int(d, "kCGWindowOwnerPID")
+
+            bounds_ref = cf.CFDictionaryGetValue(d, kBoundsKey)
+            rect = CGRect()
+            bounds_dict = {"x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0}
+            if bounds_ref and cg.CGRectMakeWithDictionaryRepresentation(
+                bounds_ref, ctypes.byref(rect)
+            ):
+                bounds_dict = {
+                    "x": float(rect.x),
+                    "y": float(rect.y),
+                    "width": float(rect.width),
+                    "height": float(rect.height),
+                }
+
+            if on_screen_only and (bounds_dict["width"] <= 1 or bounds_dict["height"] <= 1):
+                continue
+
+            windows.append(
+                {
+                    "id": win_id,
+                    "owner_name": owner,
+                    "name": name,
+                    "layer": layer,
+                    "pid": pid,
+                    "bounds": bounds_dict,
+                    "is_onscreen": True,
+                }
+            )
+
+        cf.CFRelease(kBoundsKey)
+        cf.CFRelease(arr)
+        return windows
+    except Exception as e:  # noqa: BLE001
+        logger.warning("list_all_windows_failed", error=str(e))
+        return []
+
+
+async def read_window_content(
+    app_name: str | None = None, window_index: int = 0, max_depth: int = 4
+) -> dict[str, Any]:
+    """Extract visible text lines, labels, inputs, and hierarchical content from a window via JXA."""
+    clean_app = json.dumps(app_name) if app_name else "null"
+    script = f"""
+(() => {{
+  try {{
+    const se = Application("System Events");
+    let targetProc = null;
+    if ({clean_app}) {{
+      targetProc = se.applicationProcesses.byName({clean_app});
+    }} else {{
+      const front = se.applicationProcesses.where({{ frontmost: true }});
+      if (front.length > 0) targetProc = front[0];
+    }}
+
+    if (!targetProc || !targetProc.exists()) {{
+      return JSON.stringify({{ error: "Target application process not found" }});
+    }}
+
+    const appName = targetProc.name();
+    const windows = targetProc.windows();
+    if (windows.length === 0) {{
+      return JSON.stringify({{ app_name: appName, window_title: "", text_content: "", elements: [] }});
+    }}
+
+    const targetWin = windows[Math.min({window_index}, windows.length - 1)];
+    const winTitle = targetWin.name() || "";
+    const textPieces = [];
+    const elements = [];
+
+    function harvestText(elem, depth) {{
+      if (depth > {max_depth}) return;
+      let role = "";
+      let title = "";
+      let val = "";
+      let desc = "";
+      let pos = [0, 0];
+      let sz = [0, 0];
+
+      try {{ role = elem.role() || ""; }} catch(e) {{}}
+      try {{ title = elem.title() || ""; }} catch(e) {{}}
+      try {{ val = String(elem.value() || ""); }} catch(e) {{}}
+      try {{ desc = elem.description() || ""; }} catch(e) {{}}
+      try {{ pos = elem.position() || [0, 0]; }} catch(e) {{}}
+      try {{ sz = elem.size() || [0, 0]; }} catch(e) {{}}
+
+      const primaryText = title || val || desc;
+      if (primaryText && primaryText !== "missing value" && primaryText.trim().length > 0) {{
+        textPieces.push(primaryText.trim());
+        elements.push({{
+          role: role,
+          text: primaryText.trim(),
+          position: pos,
+          size: sz
+        }});
+      }}
+
+      try {{
+        const children = elem.uiElements();
+        for (let i = 0; i < children.length; i++) {{
+          harvestText(children[i], depth + 1);
+        }}
+      }} catch(e) {{}}
+    }}
+
+    harvestText(targetWin, 1);
+
+    return JSON.stringify({{
+      app_name: appName,
+      window_title: winTitle,
+      text_content: textPieces.join("\\n"),
+      elements: elements.slice(0, 200)
+    }});
+  }} catch (err) {{
+    return JSON.stringify({{ error: String(err) }});
+  }}
+}})();
+"""
+    res = await run_jxa(script, timeout=15.0)
+    if isinstance(res, dict) and "error" in res:
+        logger.warning("read_window_content_failed", error=res["error"])
+        return {
+            "app_name": app_name or "",
+            "window_title": "",
+            "text_content": "",
+            "elements": [],
+            "error": res["error"],
+        }
+    return (
+        res
+        if isinstance(res, dict)
+        else {
+            "app_name": app_name or "",
+            "window_title": "",
+            "text_content": "",
+            "elements": [],
+        }
+    )

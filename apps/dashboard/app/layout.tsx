@@ -6,6 +6,11 @@ import { AuthProvider } from "../src/context/AuthContext";
 export const metadata: Metadata = {
   title: "NEXUS Operating System — Console",
   description: "Unified Command Center for NEXUS Agentic AI Operating System",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({

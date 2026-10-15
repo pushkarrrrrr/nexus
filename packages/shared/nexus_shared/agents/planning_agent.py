@@ -11,7 +11,6 @@ from packages.shared.nexus_shared.models import (
     ExecutionPlanModel,
     PlanStepModel,
     generate_uuid,
-    utcnow,
 )
 from packages.types.nexus_types.schemas import (
     AgentPlan,
@@ -161,49 +160,14 @@ class PlanningAgent(BaseAgent):
         if not plan:
             raise ValueError(f"Plan '{plan_id}' not found")
 
-        self.logger.info(
-            "replanning_initiated",
-            plan_id=plan_id,
-            failed_step_id=failed_step.id,
-            error=error_context,
-            current_replan_count=plan.replan_count,
-        )
+        from packages.shared.nexus_shared.agents.recovery import get_recovery_coordinator
 
-        plan.replan_count += 1
-        plan.status = "re-planning"
-        plan.updated_at = utcnow()
-
-        # Find existing max step index
-        steps_query = await db.execute(
-            select(PlanStepModel)
-            .where(PlanStepModel.plan_id == plan_id)
-            .order_by(PlanStepModel.index.desc())
+        coordinator = get_recovery_coordinator()
+        created_steps, _, _ = await coordinator.handle_step_failure(
+            session=db,
+            plan=plan,
+            failed_step=failed_step,
+            error_context=error_context,
+            step_results=None,
         )
-        existing_steps = list(steps_query.scalars().all())
-        next_index = (existing_steps[0].index + 1) if existing_steps else 1
-
-        # Synthesize recovery step
-        recovery_desc = f"Recovery: Retry with alternative query or fallback retrieval following failure: {error_context[:80]}"
-        recovery_step = PlanStepModel(
-            id=generate_uuid("pstep"),
-            plan_id=plan.id,
-            index=next_index,
-            description=recovery_desc,
-            assigned_agent="research"
-            if failed_step.assigned_agent == "research"
-            else "orchestrator",
-            required_tools=["fallback_resolver"],
-            dependencies=list(failed_step.dependencies or []),
-            status="pending",
-        )
-        db.add(recovery_step)
-        await db.commit()
-        await db.refresh(recovery_step)
-
-        self.logger.info(
-            "replanning_completed",
-            plan_id=plan_id,
-            new_step_id=recovery_step.id,
-            replan_count=plan.replan_count,
-        )
-        return [recovery_step]
+        return created_steps

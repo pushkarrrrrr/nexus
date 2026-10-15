@@ -33,8 +33,12 @@ from packages.shared.nexus_shared.integrations.macos.tools import (
 from packages.shared.nexus_shared.logging import get_logger
 from packages.shared.nexus_shared.tools.base import BaseTool
 from packages.shared.nexus_shared.tools.standard.application_tools import (
+    ApplicationCloseTool,
     ApplicationOpenTool,
     BrowserOpenUrlTool,
+    BrowserSearchTool,
+    MediaControlTool,
+    YouTubePlayTool,
 )
 from packages.shared.nexus_shared.tools.standard.filesystem_tools import (
     FilesystemDeleteTool,
@@ -74,7 +78,11 @@ class ToolRegistry:
             FilesystemListDirTool(),
             TerminalExecuteTool(),
             ApplicationOpenTool(),
+            ApplicationCloseTool(),
             BrowserOpenUrlTool(),
+            BrowserSearchTool(),
+            YouTubePlayTool(),
+            MediaControlTool(),
             # Phase 13: Browser Automation Tools
             BrowserOpenLoginSessionTool(),
             BrowserNavigateTool(),

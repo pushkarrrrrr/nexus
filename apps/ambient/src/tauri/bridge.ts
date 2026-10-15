@@ -5,9 +5,14 @@
  */
 
 import type { TauriNativeAppContext } from "@nexus/types";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 
 export function isTauriAvailable(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  try {
+    return isTauri();
+  } catch {
+    return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  }
 }
 
 const CLIENT_TIMEOUT_MS = 600;
@@ -41,7 +46,6 @@ export async function getFrontmostApp(): Promise<TauriNativeAppContext> {
   }
 
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
     return await withTimeout(
       invoke<TauriNativeAppContext>("get_frontmost_app"),
       { appName: "Unknown", windowTitle: "" },
@@ -62,7 +66,6 @@ export async function getSelectedText(): Promise<string> {
   }
 
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
     return await withTimeout(invoke<string>("get_selected_text"), "", 500);
   } catch {
     return "";
@@ -78,7 +81,6 @@ export async function hideHud(): Promise<void> {
   }
 
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
     await invoke("hide_hud");
   } catch (err) {
     console.warn("Failed to hide HUD via Tauri:", err);
@@ -94,7 +96,6 @@ export async function showHud(): Promise<void> {
   }
 
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
     await invoke("show_hud");
   } catch (err) {
     console.warn("Failed to show HUD via Tauri:", err);
@@ -110,9 +111,74 @@ export async function toggleHud(): Promise<boolean> {
   }
 
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
     return await invoke<boolean>("toggle_hud");
   } catch {
     return false;
   }
 }
+
+/**
+ * Dynamically resize HUD window between compact (idle search bar) and expanded (content).
+ */
+export async function setHudExpanded(expanded: boolean): Promise<void> {
+  if (!isTauriAvailable()) {
+    return;
+  }
+
+  try {
+    await invoke("set_hud_expanded", { expanded });
+  } catch (err) {
+    console.warn("Failed to set HUD expanded state:", err);
+  }
+}
+
+/**
+ * Speaks text using Apple's official Siri female voice ("Tara (English (India))" / "Samantha" / "Lekha" for Hindi).
+ * Strictly guarantees a female Siri voice by excluding all male voices like Aman and Rishi.
+ */
+export async function speakNative(text: string, voice?: string): Promise<void> {
+  const hasDevanagari = /[\u0900-\u097F]/.test(text);
+  // Default to Apple Siri voice (Tara for Indian Siri / Samantha for US Siri / Lekha for Hindi)
+  const selectedVoice = voice || (hasDevanagari ? "Lekha (Hindi (India))" : "Tara (English (India))");
+
+  if (isTauriAvailable()) {
+    try {
+      await invoke("speak_text", { text, voice: selectedVoice });
+      return;
+    } catch (err) {
+      console.warn("Tauri speak_text failed, falling back to Web Speech:", err);
+    }
+  }
+
+  // Web Speech API fallback for browser dev environment
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+
+      // STRICT FILTER: Block ALL male voices (Aman, Rishi, etc.)
+      const MALE_NAMES = /aman|rishi|male|david|george|daniel|alex|fred|tom|oliver|aaron|jorge|diego|juan|arthur|guy|ralph|junior|albert/i;
+      const isMale = (name: string) => MALE_NAMES.test(name);
+
+      // Prioritize Apple Siri voices and high-quality female voices
+      const siriFemaleVoice =
+        voices.find((v) => !isMale(v.name) && (v.name.includes("Tara") || v.name.includes("Siri"))) ||
+        voices.find((v) => !isMale(v.name) && v.name.includes("Samantha")) ||
+        voices.find((v) => !isMale(v.name) && v.name.includes("Lekha")) ||
+        voices.find((v) => !isMale(v.name) && (v.name.includes("Karen") || v.name.includes("Victoria") || v.name.includes("Veena"))) ||
+        voices.find((v) => !isMale(v.name) && v.name.toLowerCase().includes("female"));
+
+      if (siriFemaleVoice) {
+        utterance.voice = siriFemaleVoice;
+      }
+      utterance.pitch = 1.05;
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn("Web Speech speak failed:", err);
+    }
+  }
+}
+
+

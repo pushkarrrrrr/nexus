@@ -18,37 +18,49 @@ body,
   -webkit-font-smoothing: antialiased;
 }
 
-/* Ambient Canvas: Adequate margin/padding to render soft drop shadows without clipping */
-.ambient-container {
+/* Ambient Canvas */
+.ambient-container,
+.voice-circle-container {
   display: flex;
+  align-items: center;
   justify-content: center;
-  align-items: flex-start;
-  width: 100%;
-  height: 100%;
-  padding: 16px;
+  width: 100vw;
+  height: 100vh;
+  padding: 0;
+  margin: 0;
   box-sizing: border-box;
+  background: transparent !important;
+  background-color: transparent !important;
+  overflow: hidden;
+}
+
+.voice-circle-canvas {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  display: block;
   background: transparent !important;
 }
 
 /* Floating HUD Capsule */
 .capsule {
-  width: 700px;
-  max-width: 100%;
-  background: rgba(10, 15, 29, 0.88);
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background-color: #0b0f1a;
+  background: rgba(11, 15, 26, 0.96);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 16px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
   box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.75),
-    0 4px 16px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    0 20px 48px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
   color: #f8fafc;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Search / Prompt Bar */
@@ -195,10 +207,12 @@ body,
     transform: scale(0.85);
     opacity: 0.6;
   }
+
   50% {
     transform: scale(1.25);
     opacity: 1;
   }
+
   100% {
     transform: scale(0.85);
     opacity: 0.6;
@@ -314,4 +328,425 @@ body,
   border-radius: 4px;
   color: #cbd5e1;
   font-size: 10px;
+}
+
+/* ==========================================================================
+   Apple Liquid Glass Design System (iOS 26 / VisionOS / macOS Tahoe Style)
+   ========================================================================== */
+
+.liquid-glass-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  background: transparent !important;
+  user-select: none;
+  cursor: pointer;
+  -webkit-app-region: drag;
+}
+
+/* Ensure inputs, buttons, and controls receive click & keystroke events in Tauri WKWebView */
+.no-drag,
+.liquid-glass-container input,
+.liquid-glass-container button,
+.liquid-glass-container form,
+input,
+button,
+form {
+  -webkit-app-region: no-drag !important;
+  user-select: text;
+}
+
+/* Outer Ambient Caustic Halo & Depth Shadow */
+.liquid-glass-ambient-glow {
+  position: absolute;
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle,
+      rgba(0, 240, 255, 0.45) 0%,
+      rgba(37, 99, 235, 0.35) 40%,
+      rgba(217, 70, 239, 0.28) 70%,
+      transparent 100%);
+  filter: blur(16px);
+  opacity: 0.85;
+  transform: translateZ(0);
+  transition: opacity 0.35s ease, transform 0.35s ease, filter 0.35s ease;
+  animation: liquid-ambient-breathe 4.5s ease-in-out infinite;
+}
+
+.liquid-glass-ambient-glow.processing {
+  opacity: 1;
+  background: radial-gradient(circle,
+      rgba(0, 240, 255, 0.65) 0%,
+      rgba(217, 70, 239, 0.55) 45%,
+      rgba(59, 130, 246, 0.35) 75%,
+      transparent 100%);
+  filter: blur(18px);
+  animation: liquid-ambient-spin 2.2s linear infinite;
+}
+
+.liquid-glass-ambient-glow.speaking {
+  opacity: 1;
+  transform: scale(1.15);
+  filter: blur(20px);
+  animation: liquid-ambient-pulse 1.3s ease-in-out infinite;
+}
+
+/* The Main 3D Liquid Glass Orb Sphere */
+.liquid-glass-orb {
+  position: relative;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    0 12px 30px -4px rgba(0, 0, 0, 0.7),
+    0 4px 14px -2px rgba(0, 0, 0, 0.5),
+    0 0 1px 1px rgba(255, 255, 255, 0.22),
+    0 0 22px rgba(0, 240, 255, 0.3);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease;
+  transform: translateZ(0);
+}
+
+/* Layer 2: Apple Siri Orb Master Texture Layer */
+.liquid-glass-siri-base {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  filter: contrast(105%) brightness(102%);
+  transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+.liquid-glass-orb.processing .liquid-glass-siri-base {
+  filter: contrast(115%) brightness(110%);
+}
+
+.liquid-glass-orb.speaking .liquid-glass-siri-base {
+  filter: contrast(120%) brightness(115%);
+}
+
+.liquid-glass-container:hover .liquid-glass-orb {
+  transform: scale(1.045);
+  box-shadow:
+    0 16px 36px -4px rgba(0, 0, 0, 0.8),
+    0 6px 18px -2px rgba(0, 0, 0, 0.6),
+    0 0 24px rgba(56, 189, 248, 0.42),
+    0 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+.liquid-glass-container:active .liquid-glass-orb {
+  transform: scale(0.975);
+}
+
+/* Layer 1: Frosted Glass Substrate (Optical Translucency) */
+.liquid-glass-substrate {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  backdrop-filter: blur(32px) saturate(200%) contrast(110%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%) contrast(110%);
+  background: radial-gradient(circle at 35% 25%,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(22, 36, 56, 0.45) 45%,
+      rgba(10, 16, 28, 0.76) 100%);
+  pointer-events: none;
+}
+
+/* Layer 2: Spherical Refraction Lens & Inner Depth Shadow */
+.liquid-glass-refraction-lens {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%,
+      transparent 36%,
+      rgba(15, 23, 42, 0.35) 70%,
+      rgba(2, 6, 23, 0.7) 100%);
+  box-shadow:
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.38),
+    inset 0 -3.5px 9px rgba(0, 0, 0, 0.65),
+    inset 0 0 15px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+/* Layer 3: High-DPR Liquid Canvas */
+.liquid-glass-canvas {
+  position: absolute;
+  inset: 0;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  display: block;
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: screen;
+  filter: contrast(112%) brightness(106%);
+}
+
+/* Layer 4: Internal Caustic Light Pool (bounce light through glass) */
+.liquid-glass-caustic-pool {
+  position: absolute;
+  bottom: 6px;
+  right: 12px;
+  width: 58px;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center,
+      rgba(56, 189, 248, 0.35) 0%,
+      rgba(52, 211, 153, 0.2) 45%,
+      transparent 75%);
+  filter: blur(4px);
+  transform: rotate(-18deg);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+/* Layer 4.5: Glowing NEXUS Logo SVG Emblem */
+.liquid-glass-nexus-logo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.nexus-center-svg {
+  width: 50px;
+  height: 50px;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.75)) drop-shadow(0 0 20px rgba(168, 85, 247, 0.5));
+  animation: nexus-logo-pulse 3.8s ease-in-out infinite;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+}
+
+.liquid-glass-orb.processing .nexus-center-svg {
+  animation: nexus-logo-pulse 1.2s ease-in-out infinite, nexus-logo-spin 3s linear infinite;
+  filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.95)) drop-shadow(0 0 28px rgba(244, 114, 182, 0.8));
+}
+
+.liquid-glass-orb.speaking .nexus-center-svg {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 18px rgba(244, 114, 182, 0.95)) drop-shadow(0 0 30px rgba(56, 189, 248, 0.8));
+  animation: nexus-logo-pulse 1s ease-in-out infinite;
+}
+
+@keyframes nexus-logo-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes nexus-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Layer 5: Prismatic / Chromatic Dispersion Edge Ring */
+.liquid-glass-chromatic-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  padding: 1px;
+  background: conic-gradient(from 145deg,
+      rgba(56, 189, 248, 0.75) 0deg,
+      rgba(168, 85, 247, 0.65) 75deg,
+      rgba(244, 114, 182, 0.5) 140deg,
+      rgba(251, 191, 36, 0.6) 210deg,
+      rgba(52, 211, 153, 0.7) 280deg,
+      rgba(56, 189, 248, 0.75) 360deg);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.88;
+}
+
+/* Layer 6: Primary Specular Crescent (Apple VisionOS / macOS Glass Highlight) */
+.liquid-glass-specular-primary {
+  position: absolute;
+  top: 5px;
+  left: 11px;
+  width: 50px;
+  height: 25px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 30%,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.45) 40%,
+      rgba(255, 255, 255, 0) 80%);
+  transform: rotate(-26deg);
+  pointer-events: none;
+  filter: blur(0.5px);
+}
+
+/* Layer 7: Secondary Ambient Specular Sheen (Glancing Angle Reflection) */
+.liquid-glass-specular-secondary {
+  position: absolute;
+  bottom: 8px;
+  right: 14px;
+  width: 34px;
+  height: 15px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center,
+      rgba(255, 255, 255, 0.38) 0%,
+      rgba(255, 255, 255, 0) 70%);
+  transform: rotate(-25deg);
+  pointer-events: none;
+}
+
+/* Layer 8: Crisp Top Bezel Rim Light */
+.liquid-glass-top-rim {
+  position: absolute;
+  top: 1px;
+  left: 20%;
+  width: 60%;
+  height: 2px;
+  border-radius: 50%;
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.88) 50%,
+      transparent 100%);
+  pointer-events: none;
+}
+
+/* Layer 9: Shimmer Gleam (Sweeps across on click / wake-word) */
+.liquid-glass-shimmer {
+  position: absolute;
+  inset: -100%;
+  background: linear-gradient(115deg,
+      transparent 35%,
+      rgba(255, 255, 255, 0.28) 48%,
+      rgba(255, 255, 255, 0.7) 50%,
+      rgba(255, 255, 255, 0.28) 52%,
+      transparent 65%);
+  transform: rotate(35deg) translateY(-80%);
+  animation: liquid-glass-sweep 0.75s ease-out forwards;
+  pointer-events: none;
+}
+
+/* Sleek Floating Status Badge */
+.liquid-glass-status-badge {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+  max-width: 114px;
+  z-index: 20;
+  pointer-events: none;
+  animation: liquid-badge-appear 0.25s ease-out;
+}
+
+.liquid-glass-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+  animation: pulse 1.4s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+.liquid-glass-status-text {
+  font-size: 9px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Animations */
+@keyframes liquid-ambient-breathe {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.68;
+  }
+
+  50% {
+    transform: scale(1.06);
+    opacity: 0.88;
+  }
+}
+
+@keyframes liquid-ambient-spin {
+  0% {
+    transform: rotate(0deg) scale(1.04);
+  }
+
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+
+  100% {
+    transform: rotate(360deg) scale(1.04);
+  }
+}
+
+@keyframes liquid-ambient-pulse {
+
+  0%,
+  100% {
+    transform: scale(1.05);
+    opacity: 0.82;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes liquid-glass-sweep {
+  0% {
+    transform: rotate(35deg) translateY(-90%);
+  }
+
+  100% {
+    transform: rotate(35deg) translateY(90%);
+  }
+}
+
+@keyframes liquid-badge-appear {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }

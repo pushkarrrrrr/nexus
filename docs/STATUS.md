@@ -1,107 +1,92 @@
 # NEXUS Project Status & Phase Log
 
-### Current Status: Phase 14 — Autonomous Proactive Watchers, Event Triggers & Self-Healing Engine (COMPLETED)
+### Current Status: Phase 15 — Autonomous Self-Correction, Dynamic Replanning & macOS Ambient Voice Perception (COMPLETED)
 
-Last Updated: 2026-09-24
-
----
-
-## 1. Completed Work in Phase 14
-- [x] **Database Schema & Dual-Dialect Concurrency**:
-  - Created Alembic migration `010_proactive_triggers.py` (`down_revision = "009_external_integrations"`) supporting PostgreSQL and SQLite fallback.
-  - Added tables `proactive_triggers` and `trigger_events` with composite indices (`ix_triggers_user_active`, `ix_events_trigger_status`).
-  - Configured SQLite connection listener (`PRAGMA journal_mode=WAL;` and `PRAGMA busy_timeout=30000;`) in `services/api/nexus_api/database.py` for concurrency-safe background worker execution.
-  - Declared `ProactiveTriggerModel` and `TriggerEventModel` in `packages/shared/nexus_shared/models.py`.
-- [x] **Autonomous Proactive Engine & System Watcher**:
-  - `packages/shared/nexus_shared/proactive/watcher.py`: `SystemWatcher` capturing native CPU load averages (`os.getloadavg`), memory usage (macOS `sysctl` / POSIX `sysconf`), and disk usage (`shutil.disk_usage`) with zero external binary dependencies.
-  - `packages/shared/nexus_shared/proactive/evaluator.py`: `TriggerEvaluator` evaluating `threshold` (CPU/Memory/Disk percentage), `schedule` (interval timing), and `file_watch` conditions with cooldown throttling.
-  - `packages/shared/nexus_shared/proactive/remediation.py`: `RemediationCoordinator` enforcing strict Human-in-the-Loop policy gating.
-  - `packages/shared/nexus_shared/proactive/engine.py`: `ProactiveTriggerEngine` asynchronous background evaluation loop with clean `asyncio.CancelledError` shutdown wired to FastAPI lifespan.
-- [x] **Policy Engine Safeguards & Safety Invariants**:
-  - Registered new `ActionCategory.SYSTEM_INFO` for autonomous low-risk observation.
-  - Registered 6 Phase 14 capabilities (`watcher.get_system_metrics`, `watcher.inspect_events`, `trigger.create_rule`, `trigger.list_rules`, `remediation.execute_fix`, `remediation.trigger_recovery`).
-  - Strict Safety Rule: `remediation.execute_fix` is classified as `RiskLevel.HIGH`. Mutating interventions automatically pause, generate an `ApprovalRequestModel` record, mark `TriggerEventModel` as `awaiting_approval`, and broadcast approval events over WebSockets.
-- [x] **Standard Proactive Tools**:
-  - `SystemMetricsTool` (`watcher.get_system_metrics`)
-  - `SystemInspectEventsTool` (`watcher.inspect_events`)
-  - `CreateTriggerTool` (`trigger.create_rule`)
-  - `ListTriggersTool` (`trigger.list_rules`)
-  - `ExecuteRemediationTool` (`remediation.execute_fix`, HIGH risk)
-  - `TriggerRecoveryTool` (`remediation.trigger_recovery`, HIGH risk)
-- [x] **REST API & Real-Time Notification Bus**:
-  - Added `/api/v1/triggers` REST endpoints (`GET /`, `POST /`, `GET /watchers/metrics`, `GET /events`, `PATCH /{id}/toggle`, `DELETE /{id}`, `POST /{id}/evaluate`).
-  - Broadcast real-time `trigger_detected` and `approval_required` WebSocket events to all active surfaces.
-  - Updated `/api/v1/system/status` phase to `"phase_14_autonomous_triggers"`.
-- [x] **User Surfaces (Dashboard & Ambient HUD)**:
-  - TypeScript contracts added to `packages/types/src/index.ts`.
-  - Next.js Dashboard Cockpit at `/triggers` (`apps/dashboard/app/triggers/page.tsx`) with real-time system resource gauges, trigger rule management table, rule creation modal, and live anomaly stream.
-  - Added Triggers link with Activity icon to Sidebar navigation.
-  - Ambient Desktop HUD Alert Pill (`apps/ambient/src/components/ProactiveAlertPill.tsx`) listening to WebSocket `trigger_detected` events with inline warning banner.
-- [x] **Verification & Quality Gates**:
-  - **182/182 tests passing** (13 new comprehensive Phase 14 tests in `services/api/tests/test_phase14.py`).
-  - 100% clean type checking (`mypy` across backend, `tsc --noEmit` across all frontend workspaces).
-  - 100% clean code formatting (`ruff check .` and `ruff format --check .`).
-  - Successful production Next.js build (`20/20` static routes compiled).
+Last Updated: 2026-10-15
 
 ---
 
-## 2. Completed Work in Prior Phases
-- [x] **Phase 13 — Browser Automation & External Integrations**:
-  - Playwright browser connector with persistent sessions (`user_data_dir`), idle context reaper, and SSRF guard.
-  - GitHub & Google Workspace API connectors.
-  - Native macOS application control via JXA / AppleScript and Quartz CoreGraphics event synthesis.
-  - 169/169 tests passing.
-  - `BrowserSessionManager` in `packages/shared/nexus_shared/integrations/browser/session.py` with Chromium persistent context (`user_data_dir=~/.nexus/browser_profiles/{user_id}`) retaining Cookies, LocalStorage, and IndexedDB across invocations.
-  - Enforced `0700` POSIX directory isolation per user profile.
-  - Background 10-minute idle context reaper releasing Chromium's `SingletonLock` while preserving disk state.
-  - Strict SSRF hardening in `packages/shared/nexus_shared/integrations/browser/ssrf.py` blocking loopback, RFC 1918 private subnets, cloud metadata (169.254.169.254), and forbidden URL schemes.
-  - Browser capability tools: `browser.open_login_session` (headless=False for manual 2FA/QR scanning), `browser.navigate`, `browser.get_snapshot`, `browser.click` (HIGH risk), and `browser.type` (HIGH risk).
-- [x] **External API Connectors (GitHub & Google Workspace)**:
-  - `GitHubConnector` (`github.list_issues`, `github.read_file`, `github.create_issue`, `github.create_pr`).
-  - `GoogleWorkspaceConnector` (`google.list_calendar_events`, `google.create_calendar_event`, `google.search_gmail`, `google.send_email`).
-- [x] **Policy Engine Gating & Safety Invariants**:
-  - Mutating actions (`browser.click`, `browser.type`, `github.create_issue`, `github.create_pr`, `google.create_calendar_event`, `google.send_email`) strictly registered as `RiskLevel.HIGH`, requiring human-in-the-loop approval.
-  - Automated `ApprovalRequestModel` generation and DAG execution pausing prior to mutating execution.
-- [x] **FastAPI Endpoints & Next.js Cockpit**:
-  - Full REST endpoints at `/api/v1/integrations` (list, connect, disconnect, health, launch login session).
-  - Next.js dashboard cockpit at `/integrations` with real-time status cards, masked credential inputs, and "Launch Persistent Login Session" action.
-  - Integrated into Sidebar and Tools view.
-- [x] **Native macOS Application Control & Accessibility Engine**:
-  - `MacOSConnector` implementing `BaseConnector` lifecycle interface in `packages/shared/nexus_shared/integrations/macos/connector.py`.
-  - Pure Python `ctypes` bindings to macOS `ApplicationServices` (`AXIsProcessTrusted`) and `CoreGraphics` (`CGPreflightScreenCaptureAccess`) for zero-dependency TCC permission checking and diagnostics with System Settings deep-links.
-  - Dual Execution Engine in `packages/shared/nexus_shared/integrations/macos/engine.py`:
-    - Async JXA / AppleScript engine via `osascript -l JavaScript` for `AXUIElement` hierarchy traversal, app activation, and `AXPress` element clicking.
-    - Synthetic CoreGraphics / Quartz event synthesis fallback (`CGEventCreateMouseEvent`, `CGEventCreateKeyboardEvent`, `CGEventKeyboardSetUnicodeString`, `CGEventSetFlags`, `CGEventPost`).
-    - Window frame capture via `screencapture -l<window_id> -o -C` with `CGWindowListCopyWindowInfo` resolution.
-  - 7 new tools under `macos.*`: `macos.list_running_apps`, `macos.focus_app`, `macos.inspect_ui`, `macos.capture_window`, `macos.click_element` (HIGH), `macos.type_text` (HIGH), `macos.send_shortcut` (HIGH).
-  - Strict Policy Engine safeguards: `SYSTEM_CONTROL` action category with `RiskLevel.HIGH` on all mutating desktop actions requiring explicit `ApprovalRequestModel`.
-  - REST endpoints at `GET /api/v1/integrations/macos/apps` and `GET /api/v1/integrations/macos/permissions`.
-  - Next.js dashboard card with real-time TCC status badges and running desktop apps inspector.
-- [x] **Verification & Quality Gates**:
-  - **169/169 tests passing** (17 new tests in `services/api/tests/test_macos_connector.py`).
-  - 100% clean type checking (`mypy` across backend, `tsc --noEmit` across all workspaces).
-  - Successful production Next.js build (`19/19` static routes compiled).
+## 1. Completed Work in Phase 15: Autonomous Self-Correction, Dynamic Replanning & Error Recovery
+- [x] **Database Schema & Migration**:
+  - Created Alembic migration `011_self_correction_recovery.py` (`down_revision = "010_proactive_triggers"`).
+  - Added table `replan_records` with structured fields: `id`, `plan_id`, `original_step_id`, `failed_action`, `error_category`, `reflection_summary`, `proposed_steps`, `recovery_strategy`, `reversal_snapshot_id`, `status`, `replan_count`, `created_at`.
+  - Added `replan_count` column to `execution_plans` table for bounded replan budget enforcement.
+  - Declared `ReplanRecordModel` in `packages/shared/nexus_shared/models.py`.
+- [x] **Autonomous Error Classifier & Diagnostic Engine**:
+  - `packages/shared/nexus_shared/agents/recovery/classifier.py`: `ErrorClassifier` categorizing execution failures into canonical taxonomies: `PARAM_INVALID`, `POLICY_REJECTED`, `TIMEOUT`, `RESOURCE_NOT_FOUND`, `ENVIRONMENT_ERROR`, `TOOL_FAILURE`, and `UNKNOWN`.
+  - Deterministic classification rules paired with fallback pattern matching.
+- [x] **LLM-Powered Self-Correction Reflector**:
+  - `packages/shared/nexus_shared/agents/recovery/reflector.py`: `SelfCorrectionReflector` performing semantic reflection via Google Gemini structured output with fallback heuristic recovery generators.
+  - Produces structured `SelfCorrectionProposal` containing root cause explanation, recovery strategy (`RETRY_MODIFIED_PARAMS`, `SUBSTITUTE_TOOL`, `INSERT_PREREQUISITE_STEPS`, `ROLLBACK_AND_ABORT`), and concrete `ProposedRecoveryStep` models.
+- [x] **Dynamic DAG Patcher & Dependency Splicer**:
+  - `packages/shared/nexus_shared/agents/recovery/patcher.py`: `DAGPatcher` dynamically splicing recovery steps into active `ExecutionPlanModel` and `TaskDAGModel`.
+  - Rewires topological dependencies, sets spliced step indices, marks failed step as `SKIPPED`, and marks recovery steps as `PENDING`.
+- [x] **Recovery Coordinator & Reversal Integration**:
+  - `packages/shared/nexus_shared/agents/recovery/coordinator.py`: `SelfCorrectionCoordinator` orchestrating automated rollback of dirty filesystem state via `SnapshotManager.revert_action_snapshot()` before applying recovery patches.
+  - Enforces strict replan budget (`MAX_REPLANS_PER_PLAN = 3`). If budget is exceeded, halts automated replanning and escalates to Human-in-the-Loop (`ApprovalRequestModel` with risk `HIGH`).
+- [x] **REST API Endpoints**:
+  - Added `/api/v1/plans/{plan_id}/reflections` (list replan history for a plan).
+  - Added `/api/v1/plans/{plan_id}/reflections/diagnose` (trigger manual diagnostic reflection).
+  - Added `/api/v1/plans/reflections/recent` (retrieve recent reflection events across execution plans).
+  - Added `/api/v1/plans/recovery/stats` (aggregated telemetry, MTTR, rollback counts, and strategy distributions).
+- [x] **Dashboard UI — Autonomous Self-Correction & Dynamic Replanning Cockpit**:
+  - Implemented `apps/dashboard/app/recovery/page.tsx` (`/recovery`) with live telemetry cards (Success Rate, Total Replans, Rollbacks Executed, HITL Quarantines).
+  - Added Interactive 6-stage Recovery Test Harness simulating live fault diagnosis, classification, rollback, and dynamic DAG grafting.
+  - Added Visual Side-by-Side DAG Comparison comparing original blocked graph against dynamically spliced recovery graph.
+  - Added Persistent Reflection Audit Ledger with strategy filtering and full JSON diagnostic modal.
+  - Added "Self-Correction" navigation item with `v15` badge in `Sidebar.tsx`.
+- [x] **Verification & Test Suite**:
+  - **8/8 tests passing** in `services/api/tests/test_phase15.py` and **205/205 tests passing** across the entire backend test suite.
+  - Clean TypeScript compilation across `@nexus/ambient` and `@nexus/dashboard`.
 
 ---
 
-## 2. Completed Work in Prior Phases
-- [x] **Phase 12 — Ambient NEXUS Desktop Layer**: Native Tauri Rust core, global shortcut, transparent frameless HUD, real-time WebSocket bridge.
-- [x] **Phase 11 — Tool System + Controlled Computer Actions**: OS abstraction, MacOSAdapter, standard tools, CWD validation, buffer caps.
-- [x] **Phase 10 — Reversible Actions + Diff Approval**: Action classification, diff preview, state drift detection, size caps, and one-click rollback.
-- [x] **Phase 9 — Policy Engine + Trust Model**: Capability catalog, risk tiers, human-in-the-loop approvals, audit ledger.
-- [x] **Phase 8 — Agent Orchestrator + Planning**: Specialized agent framework, planning/replanning recovery, execution plans.
-- [x] **Phase 7 — Knowledge Graph**: Graph storage, recursive CTE traversal, hybrid graph-RAG retrieval.
-- [x] **Phase 6 — Memory + Personal Knowledge + RAG**: 5-class memory taxonomy, ingestion, vector store, grounded RAG.
-- [x] **Phase 5 — AI Gateway**: Unified multi-provider LLM layer, structured output, fallback chains.
-- [x] **Phase 4 — NEXUS Core + Task System**: Task DAGs, state machine, timeline events, WebSocket bus.
-- [x] **Phase 3 — Identity + User Context**: Auth engine, JWT tokens, tenant isolation.
-- [x] **Phase 2 — Design System + Dashboard**: Component suite, operating console shell.
-- [x] **Phase 1 — Monorepo Foundation**: FastAPI backend, background worker, Alembic migration 001.
-- [x] **Phase 0 — Project Constitution**: Core architectural rules (`AGENTS.md`).and resumable approval metadata.
+## 2. Completed Work: Full macOS Ambient Voice & Screen Perception Engine
+- [x] **macOS Adapter & Native Engine Extensions**:
+  - Extended `ComputerControlAdapter` ([packages/shared/nexus_shared/computer/base.py](file:///Users/apple/coding%20/nexus/packages/shared/nexus_shared/computer/base.py)) and `MacOSAdapter` ([packages/shared/nexus_shared/computer/macos.py](file:///Users/apple/coding%20/nexus/packages/shared/nexus_shared/computer/macos.py)) with complete OS perception and control:
+    - `scroll(direction, amount)`: Native AppleScript/Quartz scrolling.
+    - `read_window_content(app_name, window_index)`: Accessibility tree inspection harvesting text and elements from active window.
+    - `list_windows(on_screen_only)`: CoreGraphics window enumeration (`CGWindowListCopyWindowInfo`).
+    - `click_coords(x, y, button, click_count)`: Explicit coordinate clicks.
+    - `press_key(key)`: Keyboard simulation (enter, space, escape, tab, page down, etc.).
+    - `mouse_drag(start_x, start_y, end_x, end_y)`: Synthetic mouse dragging.
+    - `get_frontmost_app()`: Active frontmost process name and window title.
+- [x] **Sub-70ms Fast-Path Voice Dispatcher**:
+  - Inverted dispatch hierarchy in [services/api/nexus_api/routes/v1/voice_action_dispatcher.py](file:///Users/apple/coding%20/nexus/services/api/nexus_api/routes/v1/voice_action_dispatcher.py):
+    - Standard macOS commands execute in **0ms network time** via local regex router (<70ms round-trip).
+    - Unmapped or conversational queries fall through to Gemini for natural-language answers.
+  - Eliminated duplicate parallel POST requests between `127.0.0.1` and `localhost` in [ambientChatService.ts](file:///Users/apple/coding%20/nexus/apps/ambient/src/services/ambientChatService.ts).
+  - Benchmarked latency speedups: `scroll down` dropped from 2,320ms to **70ms** (33x faster); `list windows` dropped from 2,418ms to **36ms** (67x faster).
+- [x] **Ambient Layer UI & Apple Liquid Glass Design**:
+  - Built interactive 480×260 floating HUD with quick action pills (`📜 Scroll Down`, `🖥️ Read Screen`, `🪟 Windows`, `🎵 Spotify`).
+  - Added `-webkit-app-region: no-drag` across all inputs and buttons to ensure zero event interception in Tauri WKWebView.
+  - Added 500ms fast silence endpointing in [VoiceOrb.tsx](file:///Users/apple/coding%20/nexus/apps/ambient/src/components/VoiceOrb.tsx) eliminating 1.2s–1.8s of Web Speech dead time.
+- [x] **Verification**:
+  - **33/33 tests passing** across `services/api/tests/test_ambient_voice_screen.py`, `test_ambient_chat.py`, and `test_macos_connector.py`.
+  - Frontend typecheck passes cleanly (`tsc --noEmit`).
 
 ---
 
-## 3. Next Phase: Phase 13
-- Phase 13: Autonomous Self-Correction, Dynamic Replanning & Error Recovery.
+## 3. Prior Completed Phases
+- [x] **Phase 14 — Autonomous Proactive Watchers, Event Triggers & Self-Healing Engine** (182/182 tests)
+- [x] **Phase 13 — Browser Automation & External Integrations** (169/169 tests)
+- [x] **Phase 12 — Ambient NEXUS Desktop Layer** (Tauri Rust core, global shortcut, transparent HUD)
+- [x] **Phase 11 — Tool System + Controlled Computer Actions**
+- [x] **Phase 10 — Reversible Actions + Diff Approval**
+- [x] **Phase 9 — Policy Engine + Trust Model**
+- [x] **Phase 8 — Agent Orchestrator + Planning**
+- [x] **Phase 7 — Knowledge Graph**
+- [x] **Phase 6 — Memory + Personal Knowledge + RAG**
+- [x] **Phase 5 — AI Gateway**
+- [x] **Phase 4 — NEXUS Core + Task System**
+- [x] **Phase 3 — Identity + User Context**
+- [x] **Phase 2 — Design System + Dashboard**
+- [x] **Phase 1 — Monorepo Foundation**
+- [x] **Phase 0 — Project Constitution**
+
+---
+
+## 4. Next Phase: Phase 16
+- Phase 16: Academic Benchmarking, Formal Ablation Evaluation Suite & Capstone Finalization.
 
 

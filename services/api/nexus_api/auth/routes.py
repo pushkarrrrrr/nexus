@@ -29,7 +29,10 @@ from packages.types.nexus_types.schemas import (
     UserProfile,
     UserRegisterRequest,
 )
-from services.api.nexus_api.auth.dependencies import get_current_user
+from services.api.nexus_api.auth.dependencies import (
+    _get_or_create_demo_user,
+    get_current_user,
+)
 from services.api.nexus_api.auth.security import (
     create_access_token,
     hash_password,
@@ -218,18 +221,27 @@ async def login_user(
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
+    settings = get_settings()
+    is_demo_mode = settings.nexus_demo_mode and settings.nexus_env != "production"
+
     if user is None or not verify_password(req.password, str(user.hashed_password)):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        if is_demo_mode:
+            user = await _get_or_create_demo_user(db)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated",
-        )
+        if is_demo_mode:
+            user = await _get_or_create_demo_user(db)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is deactivated",
+            )
 
     # Record security audit event
     await _record_auth_audit_event(

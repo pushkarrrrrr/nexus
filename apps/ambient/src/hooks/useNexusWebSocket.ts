@@ -21,6 +21,7 @@ export function useNexusWebSocket(url = "ws://localhost:8000/ws/nexus?client_sur
   const [activeTool, setActiveTool] = useState<ToolActivityEvent | null>(null);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequestRecord | null>(null);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [replanNotification, setReplanNotification] = useState<{ strategy: string; diagnosis: string } | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -77,6 +78,21 @@ export function useNexusWebSocket(url = "ws://localhost:8000/ws/nexus?client_sur
             setPendingApproval(null);
           }
 
+          if (data.event_type === "reflection_started") {
+            setReplanNotification({
+              strategy: "ANALYZING",
+              diagnosis: "Agent reflecting on step failure...",
+            });
+          }
+
+          if (data.event_type === "replan_synthesized" && data.payload) {
+            setReplanNotification({
+              strategy: data.payload.strategy || "RECOVERY",
+              diagnosis: data.payload.diagnosis || "Self-correction plan formulated",
+            });
+            setTimeout(() => setReplanNotification(null), 8000);
+          }
+
           if (data.event_type === "agent_message" && data.payload?.content) {
             setResultMessage((prev) => (prev ? `${prev}\n${data.payload.content}` : data.payload.content));
           }
@@ -130,6 +146,7 @@ export function useNexusWebSocket(url = "ws://localhost:8000/ws/nexus?client_sur
     setPendingApproval,
     resultMessage,
     setResultMessage,
+    replanNotification,
     sendEvent,
   };
 }

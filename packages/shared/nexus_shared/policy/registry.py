@@ -213,6 +213,42 @@ DEFAULT_CAPABILITIES: list[CapabilityDefinition] = [
         default_risk_level="HIGH",
         description="Send global shortcut keys to macOS application (requires user approval)",
     ),
+    CapabilityDefinition(
+        name="macos.list_windows",
+        category="READ",
+        default_risk_level="LOW",
+        description="Enumerate open windows across all running desktop applications",
+    ),
+    CapabilityDefinition(
+        name="macos.read_window_content",
+        category="READ",
+        default_risk_level="LOW",
+        description="Extract visible text and elements from a window in reading order",
+    ),
+    CapabilityDefinition(
+        name="macos.scroll",
+        category="SYSTEM_CONTROL",
+        default_risk_level="HIGH",
+        description="Synthesize scroll wheel events on screen (requires user approval)",
+    ),
+    CapabilityDefinition(
+        name="macos.click_coords",
+        category="SYSTEM_CONTROL",
+        default_risk_level="HIGH",
+        description="Click or double-click at explicit screen pixel coordinates (requires user approval)",
+    ),
+    CapabilityDefinition(
+        name="macos.mouse_drag",
+        category="SYSTEM_CONTROL",
+        default_risk_level="HIGH",
+        description="Drag between screen pixel coordinates (requires user approval)",
+    ),
+    CapabilityDefinition(
+        name="macos.press_key",
+        category="SYSTEM_CONTROL",
+        default_risk_level="HIGH",
+        description="Send single navigation/functional key press to system (requires user approval)",
+    ),
     # Phase 14: Proactive Watchers, Triggers & Self-Healing Capabilities
     CapabilityDefinition(
         name="watcher.get_system_metrics",
