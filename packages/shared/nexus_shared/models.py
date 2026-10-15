@@ -724,6 +724,12 @@ class ExecutionPlanModel(Base):
         cascade="all, delete-orphan",
         order_by="PlanStepModel.index",
     )
+    replan_records: Mapped[list["ReplanRecordModel"]] = relationship(
+        "ReplanRecordModel",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="ReplanRecordModel.created_at",
+    )
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -763,12 +769,17 @@ class PlanStepModel(Base):
     status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_retries: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    is_recovery_step: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    replaces_step_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     result_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     plan: Mapped["ExecutionPlanModel"] = relationship("ExecutionPlanModel", back_populates="steps")
+    replan_records: Mapped[list["ReplanRecordModel"]] = relationship(
+        "ReplanRecordModel", back_populates="step", cascade="all, delete-orphan"
+    )
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -786,6 +797,64 @@ class PlanStepModel(Base):
             self.retry_count = 0
         if getattr(self, "max_retries", None) is None:
             self.max_retries = 2
+        if getattr(self, "is_recovery_step", None) is None:
+            self.is_recovery_step = False
+
+
+class ReplanRecordModel(Base):
+    __tablename__ = "replan_records"
+    __table_args__ = (
+        Index("ix_replan_records_plan_step", "plan_id", "step_id"),
+        Index("ix_replan_records_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: generate_uuid("replan")
+    )
+    plan_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("execution_plans.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    step_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("plan_steps.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    task_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("task_dags.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    iteration: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    error_category: Mapped[str] = mapped_column(String(64), nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    diagnosis: Mapped[str] = mapped_column(Text, nullable=False)
+    strategy: Mapped[str] = mapped_column(String(64), nullable=False)
+    recovery_steps: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    snapshot_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    rollback_performed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="replanned", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    plan: Mapped["ExecutionPlanModel"] = relationship("ExecutionPlanModel", back_populates="replan_records")
+    step: Mapped["PlanStepModel"] = relationship("PlanStepModel", back_populates="replan_records")
+    user: Mapped["UserModel"] = relationship("UserModel")
+    task: Mapped["TaskDAGModel"] = relationship("TaskDAGModel")
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        if getattr(self, "id", None) is None:
+            self.id = generate_uuid("replan")
+        if getattr(self, "iteration", None) is None:
+            self.iteration = 1
+        if getattr(self, "recovery_steps", None) is None:
+            self.recovery_steps = []
+        if getattr(self, "rollback_performed", None) is None:
+            self.rollback_performed = False
+        if getattr(self, "status", None) is None:
+            self.status = "replanned"
+        if getattr(self, "created_at", None) is None:
+            self.created_at = utcnow()
 
 
 class CapabilityModel(Base):

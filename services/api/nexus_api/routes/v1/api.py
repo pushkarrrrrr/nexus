@@ -9,7 +9,9 @@ from services.api.nexus_api.knowledge.routes import knowledge_router
 from services.api.nexus_api.memory.routes import memory_router
 from services.api.nexus_api.policy.routes import policy_router
 from services.api.nexus_api.reversal.routes import reversal_router
+from services.api.nexus_api.routes.v1.ambient import ambient_router
 from services.api.nexus_api.routes.v1.integrations import integrations_router
+from services.api.nexus_api.routes.v1.recovery import recovery_router
 from services.api.nexus_api.routes.v1.triggers import triggers_router, watchers_router
 from services.api.nexus_api.sessions.routes import sessions_router
 from services.api.nexus_api.tasks.routes import tasks_router
@@ -21,6 +23,7 @@ v1_router.include_router(tasks_router)
 v1_router.include_router(sessions_router)
 v1_router.include_router(goals_router)
 v1_router.include_router(ai_router)
+v1_router.include_router(ambient_router)
 v1_router.include_router(memory_router)
 v1_router.include_router(knowledge_router)
 v1_router.include_router(graph_router)
@@ -31,12 +34,13 @@ v1_router.include_router(tools_router)
 v1_router.include_router(integrations_router)
 v1_router.include_router(triggers_router)
 v1_router.include_router(watchers_router)
+v1_router.include_router(recovery_router)
 
 
 @v1_router.get("/system/status")
 async def system_status():
     return {
         "status": "ready",
-        "phase": "phase_14_autonomous_triggers",
+        "phase": "phase_15_self_correction_recovery",
         "supported_surfaces": ["dashboard", "ambient"],
     }

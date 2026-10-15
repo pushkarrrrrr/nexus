@@ -774,6 +774,7 @@ class PlanStepStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
+    SUPERSEDED = "superseded"
 
 
 class PlanStatus(str, Enum):
