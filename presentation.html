@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS: Agentic AI Operating System — Final Presentation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f172a;
+      color: #1e293b;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+    .slide-viewport {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .slide {
+      display: none;
+      width: 100%;
+      max-width: 1333px;
+      aspect-ratio: 16 / 9;
+      background: #f8fafc;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      position: relative;
+      padding: 40px 50px;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .slide.active { display: flex; }
+    .top-bar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 6px;
+      background: #0ea5e9;
+    }
+    .header {
+      margin-bottom: 20px;
+    }
+    .header h2 {
+      font-size: 30px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .header p {
+      font-size: 14px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    .banner {
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 8px;
+      padding: 10px 16px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #1e3a8a;
+      margin-bottom: 20px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      flex: 1;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      flex: 1;
+    }
+    .card {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .card.danger { border-color: #fecdd3; }
+    .card.success { border-color: #bbf7d0; }
+    .card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card p, .card li {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #334155;
+    }
+    .card ul {
+      list-style: none;
+    }
+    .card li {
+      margin-bottom: 10px;
+    }
+    .card li strong {
+      color: #0f172a;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0284c7;
+      margin-bottom: 8px;
+    }
+    .img-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .img-container img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .bottom-bar {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #334155;
+    }
+    .bottom-bar strong {
+      color: #1e3a8a;
+    }
+    /* Controls */
+    .controls {
+      height: 50px;
+      background: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    .controls button {
+      background: #334155;
+      border: none;
+      color: white;
+      padding: 6px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .controls button:hover {
+      background: #0ea5e9;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="slide-viewport">
+
+    <!-- SLIDE 1: Title -->
+    <div class="slide active" id="slide-1">
+      <div class="top-bar"></div>
+      <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 30px;">
+        <img src="assets/presentation_images/page_1_img_1_X8.png" style="width: 80px; height: 80px; object-fit: contain;" alt="RVSCET Logo">
+        <div>
+          <h2 style="font-size: 22px; color: #1e3a8a; font-weight: 800;">RVS COLLEGE OF ENGINEERING AND TECHNOLOGY, JAMSHEDPUR</h2>
+          <p style="font-size: 14px; color: #64748b; font-weight: 600;">DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING</p>
+        </div>
+      </div>
+      <div style="text-align: center; margin: 30px 0;">
+        <h1 style="font-size: 48px; font-weight: 900; color: #0f172a; letter-spacing: -1px;">NEXUS:</h1>
+        <h2 style="font-size: 38px; font-weight: 800; color: #0ea5e9; margin-top: 4px;">AGENTIC AI OPERATING SYSTEM</h2>
+        <p style="font-size: 16px; font-weight: 600; color: #0d9488; margin-top: 14px;">User Intent ➔ Autonomous Multi-Agent DAGs ➔ Controlled Computer Execution</p>
+      </div>
+      <div class="grid-2" style="margin-top: 20px;">
+        <div class="card">
+          <h3>Presented By: Group A5</h3>
+          <ul>
+            <li><strong>1. Pushkar Raj</strong> (CSE/073/23)</li>
+            <li><strong>2. Chandan Kr. Sah</strong> (CSE/074/23)</li>
+            <li><strong>3. Prince Tiwari</strong> (CSE/075/23)</li>
+            <li><strong>4. Shruti Kumari</strong> (CSE/076/23)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Under the Guidance of</h3>
+          <p style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Sulekh Kumar</p>
+          <p style="color: #64748b; font-size: 13px;">Assistant Professor<br>Department of Computer Science and Engineering<br>RVSCET, Jamshedpur</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: Table of Contents -->
+    <div class="slide" id="slide-2">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>Table of Contents</h2>
+        <p>Roadmap of today's presentation</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <ul>
+            <li><strong>01. Introduction & Problem Statement</strong> — Why chatbots fail and what NEXUS solves</li>
+            <li><strong>02. System Architecture</strong> — Dual surfaces, FastAPI core & decoupled layers</li>
+            <li><strong>03. Pictorial Workflow & Safety Pipeline</strong> — 6-step execution & human verification</li>
+            <li><strong>04. Multi-Agent Orchestration</strong> — Specialist agents & dynamic self-correction</li>
+            <li><strong>05. Models Used in NEXUS</strong> — Multi-provider AI Gateway (Gemini, Claude, GPT-4o)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <ul>
+            <li><strong>06. Comprehensive Technology Stack</strong> — Next.js 14, Tauri, FastAPI, PostgreSQL, Playwright</li>
+            <li><strong>07. Policy Engine & 1-Click Rollback</strong> — 4-tier risk matrix & SHA-256 snapshot recovery</li>
+            <li><strong>08. Demerits & System Limitations</strong> — Key engineering constraints & boundary conditions</li>
+            <li><strong>09. Future Scope & Engineering Roadmap</strong> — Vision perception, cross-platform & hardware keys</li>
+            <li><strong>10. Conclusion & Key Takeaways</strong> — Capability + Control + Observability + Reversibility</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: Problem vs Objective -->
+    <div class="slide" id="slide-3">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>Introduction & Problem Statement</h2>
+        <p>Bridging the gap between AI reasoning and safe real-world execution</p>
+      </div>
+      <div class="banner">THE PARADIGM SHIFT: FROM CONVERSATIONAL CHATBOTS ➔ TO ACTION-ORIENTED AGENTS</div>
+      <div class="grid-2">
+        <div class="card danger">
+          <h3 style="color: #e11d48;">✖ The Problem: AI Can Think, But Who Controls It?</h3>
+          <ul>
+            <li><strong>Chatbots Stop at Text:</strong> Generate code answers but cannot execute terminal commands or run test suites.</li>
+            <li><strong>Voice Assistants are Shallow:</strong> Siri/Alexa rely on hardcoded intents; zero multi-step planning or reasoning.</li>
+            <li><strong>Autonomous Scripts are Hazardous:</strong> Unchecked shell scripts ('bash -c') risk catastrophic file loss and runaway loops.</li>
+            <li><strong>No Safety or Undo:</strong> Traditional tools offer zero pre-execution snapshots or rollback mechanisms.</li>
+          </ul>
+        </div>
+        <div class="card success">
+          <h3 style="color: #10b981;">✔ The Objective: What NEXUS Achieves</h3>
+          <ul>
+            <li><strong>Autonomous Planning:</strong> Transforms natural language into structured Directed Acyclic Graphs (DAGs).</li>
+            <li><strong>Air-Gapped Policy Engine:</strong> Every action is evaluated against a 4-Tier Risk Matrix (LOW to CRITICAL).</li>
+            <li><strong>Unified Diff Approvals:</strong> Inspect exact line-by-line file changes before modifying workspace files.</li>
+            <li><strong>1-Click Rollback:</strong> Pre-execution SHA-256 snapshots allow instant recovery if anything goes wrong.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: Architecture Diagram -->
+    <div class="slide" id="slide-4">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>System Architecture</h2>
+        <p>Decoupled multi-tier design separating reasoning, governance, and execution</p>
+      </div>
+      <div class="img-container">
+        <img src="assets/presentation_images/architecture_diagram.png" alt="System Architecture Diagram">
+      </div>
+      <div class="bottom-bar">
+        <strong>CORE HIGHLIGHTS:</strong> Dual Interaction Surfaces (Next.js 14 Web Dashboard + Tauri Desktop HUD) | Air-Gapped Trust: Reasoning models have ZERO direct shell access; all operations pass through the Policy Engine.
+      </div>
+    </div>
+
+    <!-- SLIDE 5: Workflow Diagram -->
+    <div class="slide" id="slide-5">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>AI Agent Safety & Execution Workflow</h2>
+        <p>The 6-step deterministic pipeline: Snapshot ➔ Policy ➔ Approval ➔ Execution ➔ Verification ➔ Rollback</p>
+      </div>
+      <div class="img-container">
+        <img src="assets/presentation_images/page_6_img_1_X9.jpg" alt="AI Agent Safety & Execution Workflow Diagram">
+      </div>
+      <div class="bottom-bar">
+        <strong>SAFETY GUARANTEES:</strong> Pre-execution snapshots capture SHA-256 hashes BEFORE mutation | Policy Engine halts on HIGH/CRITICAL actions | Git-style unified diffs eliminate ambiguity | Invariant verification triggers dynamic replanning or 1-click rollback.
+      </div>
+    </div>
+
+    <!-- SLIDE 6: Multi-Agent Orchestration -->
+    <div class="slide" id="slide-6">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>Multi-Agent Orchestration & Self-Correction</h2>
+        <p>Specialist agents collaborating via Directed Acyclic Graphs with Phase 15 self-healing</p>
+      </div>
+      <div class="img-container">
+        <img src="assets/presentation_images/orchestration_diagram.png" alt="Multi-Agent Orchestration Diagram">
+      </div>
+      <div class="bottom-bar">
+        <strong>PHASE 15 RECOVERY:</strong> ErrorClassifier categorizes failures (TIMEOUT, SYNTAX_ERROR) | DAGPatcher dynamically splices recovery steps into the active plan with strict replan budgets to prevent infinite loops.
+      </div>
+    </div>
+
+    <!-- SLIDE 7: Models Used -->
+    <div class="slide" id="slide-7">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>AI Models Used in NEXUS</h2>
+        <p>Provider-agnostic intelligence unified behind Pydantic v2 structured outputs</p>
+      </div>
+      <div class="grid-4">
+        <div class="card">
+          <div class="badge">Google Gemini</div>
+          <h3>gemini-1.5 / 2.0</h3>
+          <p style="color: #64748b; font-weight: 600; font-size: 11px; margin-bottom: 8px;">Reasoning & Multimodal</p>
+          <ul>
+            <li>1M+ token context window for repo-wide comprehension.</li>
+            <li>Native screenshot and document vision analysis.</li>
+            <li>Fast token throughput for real-time response.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="badge">Anthropic Claude</div>
+          <h3>claude-3-5-sonnet</h3>
+          <p style="color: #64748b; font-weight: 600; font-size: 11px; margin-bottom: 8px;">DAG Planning & Code</p>
+          <ul>
+            <li>Top-tier DAG synthesis & tool-call accuracy.</li>
+            <li>High adherence to negative safety constraints.</li>
+            <li>Exceptional Python & TypeScript code generation.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="badge">OpenAI</div>
+          <h3>gpt-4o / o1</h3>
+          <p style="color: #64748b; font-weight: 600; font-size: 11px; margin-bottom: 8px;">Algorithmic Logic</p>
+          <ul>
+            <li>Multi-step mathematical verification.</li>
+            <li>Strict JSON schema conformance.</li>
+            <li>Comparative benchmark evaluation baseline.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="badge">Local / Ollama</div>
+          <h3>Llama 3 / Mistral</h3>
+          <p style="color: #64748b; font-weight: 600; font-size: 11px; margin-bottom: 8px;">Private & Offline</p>
+          <ul>
+            <li>Zero cloud telemetry for sensitive corporate data.</li>
+            <li>Runs on local GPU/CPU hardware.</li>
+            <li>Cost-free development & offline fallback.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="bottom-bar" style="margin-top: 14px;">
+        <strong>STRUCTURED OUTPUT GUARANTEE:</strong> Every model output is validated against Pydantic v2 schemas (0% JSON failures) with live per-step token/cost accounting.
+      </div>
+    </div>
+
+    <!-- SLIDE 8: Tech Stack -->
+    <div class="slide" id="slide-8">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>Technology Stack</h2>
+        <p>Modern full-stack architecture built on a high-performance Python core</p>
+      </div>
+      <div class="img-container">
+        <img src="assets/presentation_images/page_8_img_1_X10.png" alt="Technology Stack Diagram">
+      </div>
+      <div class="bottom-bar">
+        <strong>FULL-STACK RIGOR:</strong> Frontend: Next.js 14, React 18, TypeScript 5.4, Tailwind CSS | Desktop HUD: Tauri 1.5 (Rust, &lt;100ms summon) | Backend: FastAPI, SQLAlchemy 2.0, PostgreSQL + pgvector, Playwright | Quality: 194 Pytest test suites passing.
+      </div>
+    </div>
+
+    <!-- SLIDE 9: Policy & Rollback -->
+    <div class="slide" id="slide-9">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>Policy Engine & 1-Click Rollback</h2>
+        <p>Deterministic safety governance and instant state reversion</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>4-Tier Risk Matrix (Air-Gapped Governance)</h3>
+          <ul>
+            <li><strong>LOW (Autonomous):</strong> Read-only file inspection, metrics queries. Executed without user interruption.</li>
+            <li><strong>MEDIUM (Session Grant):</strong> Non-destructive scripts, running pytest test suites. Authorized via session grant.</li>
+            <li><strong style="color: #1e3a8a;">HIGH (Mandatory HITL):</strong> Modifying project files, browser clicks. Requires interactive git-style diff approval.</li>
+            <li><strong style="color: #e11d48;">CRITICAL (Immediate Confirm):</strong> Destructive deletes ('rm -rf'), dropping databases. Explicit confirmation; never cached.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Reversibility & 1-Click Rollback</h3>
+          <ul>
+            <li><strong>Pre-Execution SHA-256 Snapshots:</strong> Captures exact byte backups before any tool modifies workspace files.</li>
+            <li><strong>Live Unified Diff Previews:</strong> Shows exact green (+) additions and red (-) deletions in approval modals.</li>
+            <li><strong>State Drift Detection:</strong> Halts rollback if target files were modified by an external process.</li>
+            <li><strong>1-Click State Restoration:</strong> Restores original file contents and directory trees cleanly with one click.</li>
+            <li><strong>Append-Only Audit Ledger:</strong> Every prompt, decision, and token cost is permanently saved to an immutable log.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 10: Demerits -->
+    <div class="slide" id="slide-10">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>Demerits & System Limitations</h2>
+        <p>Academic transparency: Key trade-offs and engineering constraints</p>
+      </div>
+      <div class="grid-4">
+        <div class="card danger">
+          <h3 style="font-size: 14px; color: #e11d48;">1. Multi-Step Latency</h3>
+          <p style="color: #64748b; font-weight: 600; font-size: 11px; margin-bottom: 6px;">Coordination Overhead</p>
+          <ul>
+            <li>DAG synthesis & policy checks add 1.5 - 3s latency compared to raw prompt chatbots.</li>
+            <li>Multi-turn self-reflection loops increase execution time for time-sensitive tasks.</li>
+          </ul>
+        </div>
+        <div class="card danger">
+          <h3 style="font-size: 14px; color: #e11d48;">2. External Irreversibility</h3>
+          <p style="color: #64748b; font-weight: 600; font-size: 11px; margin-bottom: 6px;">Network Boundaries</p>
+          <ul>
+            <li>Filesystem edits are 100% reversible via snapshots; external calls (emails, webhooks) cannot be undone.</li>
+            <li>Requires strict HIGH/CRITICAL policy classification to prevent accidental dispatches.</li>
+          </ul>
+        </div>
+        <div class="card danger">
+          <h3 style="font-size: 14px; color: #e11d48;">3. OS Platform Gating</h3>
+          <p style="color: #64748b; font-weight: 600; font-size: 11px; margin-bottom: 6px;">TCC & Permissions</p>
+          <ul>
+            <li>Deep desktop control requires explicit macOS Accessibility (AXIsProcessTrusted) permissions.</li>
+            <li>Full parity on Windows & Linux requires containerized subprocess adapters.</li>
+          </ul>
+        </div>
+        <div class="card danger">
+          <h3 style="font-size: 14px; color: #e11d48;">4. Web DOM Drift</h3>
+          <p style="color: #64748b; font-weight: 600; font-size: 11px; margin-bottom: 6px;">Browser Fragility</p>
+          <ul>
+            <li>Playwright automation can fail if third-party web apps deploy sudden front-end UI redesigns.</li>
+            <li>Mitigated by combining text matching with accessibility tree resolution.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 11: Future Scope -->
+    <div class="slide" id="slide-11">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>Future Scope & Engineering Roadmap</h2>
+        <p>Advancing toward ubiquitous, safe agentic computing</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="badge">Phase 16 Milestone</div>
+          <h3>Academic Benchmark Suite</h3>
+          <ul>
+            <li>Standardized benchmark test harness across software engineering, sysadmin, and research tasks.</li>
+            <li>Formal ablation studies: Baseline LLM vs. RAG vs. Memory-RAG vs. Full Agentic NEXUS.</li>
+            <li>Quantitative metrics: Task Success Rate, Latency, Cost Efficiency, and 0.0% Safety Violations.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="badge">Perception Milestone</div>
+          <h3>Multimodal Vision Screen Perception</h3>
+          <ul>
+            <li>Expands beyond accessibility trees to real-time multimodal screen vision perception.</li>
+            <li>Enables interaction with custom HTML Canvas applications, legacy desktop GUIs, and CAD tools.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="badge">Platform Milestone</div>
+          <h3>Full Cross-Platform Parity</h3>
+          <ul>
+            <li>Linux integration via Wayland / X11 and native D-Bus system bus.</li>
+            <li>Windows support via UI Automation APIs and sandboxed PowerShell execution wrappers.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="badge">Security Milestone</div>
+          <h3>Hardware-Gated Approvals</h3>
+          <ul>
+            <li>Touch ID and WebAuthn hardware security keys to sign CRITICAL-tier actions.</li>
+            <li>Eliminates stolen-session risks during production cloud deployments and irreversible actions.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 12: Conclusion -->
+    <div class="slide" id="slide-12">
+      <div class="top-bar"></div>
+      <div class="header">
+        <h2>Conclusion & Key Takeaways</h2>
+        <p>The synthesis of autonomous capability and uncompromised user safety</p>
+      </div>
+      <div class="banner" style="font-size: 20px; padding: 16px;">
+        “Give AI the ability to act — without giving up control.”<br>
+        <span style="font-size: 13px; color: #0d9488; font-weight: 700;">Capability + Control + Observability + Reversibility = Trustworthy Agentic AI</span>
+      </div>
+      <div class="grid-4" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="card">
+          <h3>Proven Engineering Rigor</h3>
+          <ul>
+            <li>15 completed development phases backed by a formal constitution (AGENTS.md).</li>
+            <li>194 automated unit and integration tests passing.</li>
+            <li>Strict Pydantic v2 and TypeScript static type validation.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>True Agentic OS</h3>
+          <ul>
+            <li>Beyond text generation: natively drives terminals, browsers, and desktop apps.</li>
+            <li>Dynamic DAG replanning and self-correction to recover from failures.</li>
+            <li>Dual surfaces: Web Cockpit + Lightweight Ambient HUD.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Safe by Design</h3>
+          <ul>
+            <li>Air-gapped Policy Engine enforcing 4-tier risk classification.</li>
+            <li>Git-style unified diffs eliminate ambiguity during approvals.</li>
+            <li>1-click snapshot restoration guarantees protected user workspaces.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 13: Thank You -->
+    <div class="slide" id="slide-13">
+      <div class="top-bar"></div>
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+        <h1 style="font-size: 58px; font-weight: 900; color: #0f172a;">Thank You!</h1>
+        <h2 style="font-size: 28px; font-weight: 800; color: #0ea5e9; margin-top: 8px;">Questions & Answers</h2>
+        <p style="font-size: 14px; color: #64748b; margin-top: 14px;">NEXUS: Agentic AI Operating System<br>Department of Computer Science & Engineering • RVSCET, Jamshedpur</p>
+        <div style="margin-top: 35px; background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 30px;">
+          <p style="font-size: 14px; font-weight: 700; color: #0f172a;">Group A5: Pushkar Raj (073) • Chandan Kr. Sah (074) • Prince Tiwari (075) • Shruti Kumari (076)</p>
+          <p style="font-size: 12px; color: #64748b; margin-top: 4px;">Under the guidance of: Sulekh Kumar (Assistant Professor, CSE)</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Navigation Controls -->
+  <div class="controls">
+    <div>
+      <button onclick="prevSlide()">◀ Previous</button>
+      <button onclick="nextSlide()">Next ▶</button>
+      <span style="margin-left: 15px; font-size: 12px;">Use Arrow Keys (◀ / ▶) or Spacebar</span>
+    </div>
+    <div id="slide-counter">Slide 1 of 13</div>
+    <div>
+      <button onclick="toggleFullScreen()">⛶ Fullscreen</button>
+    </div>
+  </div>
+
+  <script>
+    let currentSlide = 1;
+    const totalSlides = 13;
+
+    function showSlide(n) {
+      if (n < 1) n = 1;
+      if (n > totalSlides) n = totalSlides;
+      currentSlide = n;
+      document.querySelectorAll('.slide').forEach((s, idx) => {
+        s.classList.toggle('active', idx + 1 === currentSlide);
+      });
+      document.getElementById('slide-counter').textContent = `Slide ${currentSlide} of ${totalSlides}`;
+    }
+
+    function nextSlide() { showSlide(currentSlide + 1); }
+    function prevSlide() { showSlide(currentSlide - 1); }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') nextSlide();
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') prevSlide();
+    });
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+  </script>
+</body>
+</html>
