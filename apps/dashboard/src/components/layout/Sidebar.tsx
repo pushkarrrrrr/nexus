@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Terminal,
   Zap,
+  Sparkles,
 } from "lucide-react";
 
 interface NavItem {
@@ -65,6 +66,7 @@ const navGroups: NavGroup[] = [
         badgeVariant: "warning",
       },
       { name: "Triggers", href: "/triggers", icon: Zap, badge: "active", badgeVariant: "cyan" },
+      { name: "Self-Correction", href: "/recovery", icon: Sparkles, badge: "v15", badgeVariant: "cyan" },
       { name: "Tools", href: "/tools", icon: Wrench },
       { name: "Integrations", href: "/integrations", icon: Globe },
       { name: "Audit Logs", href: "/audit", icon: History },
@@ -91,9 +93,13 @@ export function Sidebar() {
     >
       {/* Brand Header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
-        <NextLink href="/" className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black text-sm shadow-md shadow-cyan-500/20 shrink-0">
-            N
+        <NextLink href="/" className="flex items-center gap-2.5 overflow-hidden group">
+          <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 shadow-lg shadow-cyan-500/25 ring-1 ring-cyan-400/40 group-hover:scale-105 transition-transform duration-200">
+            <img
+              src="/icon.png"
+              alt="NEXUS Logo"
+              className="w-full h-full object-cover"
+            />
           </div>
           {!collapsed && (
             <div className="flex flex-col min-w-0">

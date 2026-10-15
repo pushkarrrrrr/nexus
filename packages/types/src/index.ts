@@ -775,7 +775,8 @@ export type PlanStepStatus =
   | "in_progress"
   | "completed"
   | "failed"
-  | "skipped";
+  | "skipped"
+  | "superseded";
 
 export type PlanStatus =
   | "created"
@@ -1068,3 +1069,140 @@ export interface TriggerEvaluationResult {
   status: TriggerEventStatus;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 15: Autonomous Self-Correction, Dynamic Replanning & Error Recovery
+// ---------------------------------------------------------------------------
+
+export type ErrorCategory =
+  | 'PARAM_INVALID'
+  | 'TOOL_FAILURE'
+  | 'ENVIRONMENT_ERROR'
+  | 'POLICY_REJECTED'
+  | 'TIMEOUT'
+  | 'RESOURCE_NOT_FOUND'
+  | 'UNKNOWN';
+
+export type RecoveryStrategy =
+  | 'RETRY_WITH_CORRECTED_PARAMS'
+  | 'FALLBACK_TOOL'
+  | 'PRUNE_AND_SPLICE_DAG'
+  | 'ROLLBACK_AND_RETRY'
+  | 'ESCALATE_HITL';
+
+export interface ProposedRecoveryStep {
+  description: string;
+  assigned_agent: string;
+  required_tools: string[];
+  dependencies: string[];
+}
+
+export interface SelfCorrectionProposal {
+  error_category: ErrorCategory;
+  diagnosis: string;
+  strategy: RecoveryStrategy;
+  requires_rollback: boolean;
+  requires_hitl: boolean;
+  recovery_steps: ProposedRecoveryStep[];
+}
+
+export interface ReplanRecord {
+  id: string;
+  plan_id: string;
+  step_id: string;
+  task_id: string;
+  user_id: string;
+  iteration: number;
+  error_category: ErrorCategory;
+  error_message?: string | null;
+  diagnosis: string;
+  strategy: RecoveryStrategy;
+  recovery_steps: Record<string, unknown>[];
+  snapshot_id?: string | null;
+  rollback_performed: boolean;
+  status: 'analyzing' | 'replanned' | 'escalated_hitl' | 'resolved' | 'abandoned';
+  created_at: string;
+}
+
+export interface DiagnoseStepRequest {
+  step_id: string;
+  error_override?: string;
+}
+
+export interface RecoveryStats {
+  total_replan_records: number;
+  resolved_count: number;
+  rollback_count: number;
+  hitl_escalation_count: number;
+  success_rate_percent: number;
+  strategy_distribution: Record<string, number>;
+  error_category_distribution: Record<string, number>;
+}
+
+// ============================================================================
+// macOS Window Perception & Screen Control Contracts
+// ============================================================================
+
+export interface MacOSWindowBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface MacOSWindowInfo {
+  window_id: number;
+  owner_name: string;
+  owner_pid: number;
+  layer: number;
+  name: string;
+  bounds: MacOSWindowBounds;
+  is_on_screen: boolean;
+  alpha: number;
+}
+
+export interface MacOSListWindowsResponse {
+  windows: MacOSWindowInfo[];
+  count: number;
+}
+
+export interface MacOSWindowUIElement {
+  role: string;
+  title?: string;
+  value?: string;
+  description?: string;
+  subrole?: string;
+}
+
+export interface MacOSWindowContentResponse {
+  app_name: string;
+  window_index: number;
+  window_title: string;
+  content: MacOSWindowUIElement[];
+  text_summary: string;
+}
+
+export interface MacOSScrollRequest {
+  delta_y?: number;
+  delta_x?: number;
+  x?: number;
+  y?: number;
+}
+
+export interface MacOSClickCoordsRequest {
+  x: number;
+  y: number;
+  button?: 'left' | 'right' | 'center';
+  click_count?: number;
+}
+
+export interface MacOSMouseDragRequest {
+  start_x: number;
+  start_y: number;
+  end_x: number;
+  end_y: number;
+  steps?: number;
+}
+
+export interface MacOSPressKeyRequest {
+  key: string;
+}

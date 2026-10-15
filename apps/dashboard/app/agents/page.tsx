@@ -5,7 +5,7 @@ import { useAuth } from "../../src/context/AuthContext";
 import { mockAgents } from "../../src/mockData/mockAgents";
 import { Card } from "../../src/components/ui/Card";
 import { StatusBadge } from "../../src/components/ui/StatusBadge";
-import type { AgentMessage, AgentRosterItem, ExecutionPlan } from "@nexus/types";
+import type { AgentMessage, AgentRosterItem, ExecutionPlan, ReplanRecord } from "@nexus/types";
 import {
   Bot,
   Play,
@@ -35,6 +35,7 @@ export default function AgentsPage() {
   const [goal, setGoal] = useState<string>("Research recent papers on autonomous multi-agent planning and summarize findings");
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [activePlan, setActivePlan] = useState<ExecutionPlan | null>(null);
+  const [replanRecords, setReplanRecords] = useState<ReplanRecord[]>([]);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [finalResponse, setFinalResponse] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -118,11 +119,37 @@ export default function AgentsPage() {
       if (res.ok) {
         const updated = await res.json();
         setActivePlan(updated);
+        loadReflections(updated.id);
       }
     } catch (err) {
       console.warn("Replan failed:", err);
     }
   };
+
+  // Load Replan Reflections
+  const loadReflections = useCallback(
+    async (planId: string) => {
+      if (!token || !planId) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/plans/${planId}/reflections`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setReplanRecords(data);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch replan reflections:", err);
+      }
+    },
+    [token]
+  );
+
+  useEffect(() => {
+    if (activePlan?.id) {
+      loadReflections(activePlan.id);
+    }
+  }, [activePlan?.id, activePlan?.replan_count, loadReflections]);
 
   // Agent Icon Helper
   const getAgentIcon = (agentType: string) => {
@@ -259,8 +286,15 @@ export default function AgentsPage() {
                       <div className="flex items-start gap-2.5">
                         <div className="mt-0.5">{getAgentIcon(step.assigned_agent || "orchestrator")}</div>
                         <div>
-                          <div className="text-xs font-mono text-white font-medium">
-                            {step.description || step.name}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-white font-medium">
+                              {step.description || step.name}
+                            </span>
+                            {(step as { is_recovery_step?: boolean }).is_recovery_step && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 tracking-wider">
+                                RECOVERY STEP
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[11px] font-mono text-slate-400">
                             <span className="text-cyan-400 font-semibold uppercase">{step.assigned_agent}</span>
@@ -290,6 +324,47 @@ export default function AgentsPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Autonomous Self-Correction Log */}
+              {replanRecords.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-mono font-bold text-purple-400">
+                    <Sparkles size={14} />
+                    <span>Autonomous Self-Correction Log ({replanRecords.length})</span>
+                  </div>
+                  <div className="space-y-2">
+                    {replanRecords.map((rec) => (
+                      <div
+                        key={rec.id}
+                        className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/30 text-xs font-mono space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                            {rec.error_category}
+                          </span>
+                          <span className="text-[10px] font-semibold text-purple-300 uppercase tracking-wider">
+                            Strategy: {rec.strategy.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        <p className="text-slate-300 text-[11px] leading-relaxed">
+                          {rec.diagnosis}
+                        </p>
+                        <div className="flex items-center gap-4 text-[10px] text-slate-400 pt-1.5 border-t border-white/5">
+                          <span>
+                            Filesystem Rollback:{" "}
+                            <strong className={rec.rollback_performed ? "text-emerald-400" : "text-slate-400"}>
+                              {rec.rollback_performed ? "Executed" : "None"}
+                            </strong>
+                          </span>
+                          <span>
+                            Status: <strong className="text-cyan-400">{rec.status}</strong>
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {activePlan.status === "failed" && activePlan.replan_count < activePlan.max_replans && (
                 <button
