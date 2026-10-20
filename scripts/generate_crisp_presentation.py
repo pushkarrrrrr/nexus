@@ -1,9 +1,11 @@
 import os
+
 from pptx import Presentation
-from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.text import PP_ALIGN
+from pptx.util import Inches, Pt
+
 
 def create_crisp_deck():
     prs = Presentation()
@@ -194,7 +196,7 @@ def create_crisp_deck():
         left_pos = Inches(0.8 + col * 5.95)
         top_pos = Inches(1.6 + row * 1.05)
         
-        card = add_card(s2, left_pos, top_pos, Inches(5.6), Inches(0.9))
+        add_card(s2, left_pos, top_pos, Inches(5.6), Inches(0.9))
         tb = s2.shapes.add_textbox(left_pos + Inches(0.2), top_pos + Inches(0.1), Inches(5.2), Inches(0.7))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -402,7 +404,7 @@ def create_crisp_deck():
 
     for i, (m_title, m_ver, m_role, m_points) in enumerate(models_data):
         left_pos = Inches(0.8 + i * 2.98)
-        card = add_card(s7, left_pos, Inches(1.6), Inches(2.8), Inches(4.3), m_title)
+        add_card(s7, left_pos, Inches(1.6), Inches(2.8), Inches(4.3), m_title)
         tb = s7.shapes.add_textbox(left_pos + Inches(0.15), Inches(2.1), Inches(2.5), Inches(3.6))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -563,7 +565,7 @@ def create_crisp_deck():
 
     for i, (title, sub, bullets) in enumerate(demerits_data):
         left_pos = Inches(0.8 + i * 2.98)
-        card = add_card(s10, left_pos, Inches(1.6), Inches(2.8), Inches(5.3), title, border_color=RGBColor(254, 205, 211))
+        add_card(s10, left_pos, Inches(1.6), Inches(2.8), Inches(5.3), title, border_color=RGBColor(254, 205, 211))
         tb = s10.shapes.add_textbox(left_pos + Inches(0.15), Inches(2.2), Inches(2.5), Inches(4.5))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -616,7 +618,7 @@ def create_crisp_deck():
         left_pos = Inches(0.8 + col * 5.95)
         top_pos = Inches(1.6 + row * 2.7)
         
-        card = add_card(s11, left_pos, top_pos, Inches(5.6), Inches(2.5), title)
+        add_card(s11, left_pos, top_pos, Inches(5.6), Inches(2.5), title)
         tb = s11.shapes.add_textbox(left_pos + Inches(0.2), top_pos + Inches(0.55), Inches(5.2), Inches(1.8))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -687,7 +689,7 @@ def create_crisp_deck():
 
     for i, (title, bullets) in enumerate(concl_cards):
         left_pos = Inches(0.8 + i * 3.98)
-        card = add_card(s12, left_pos, Inches(3.1), Inches(3.7), Inches(3.8), title)
+        add_card(s12, left_pos, Inches(3.1), Inches(3.7), Inches(3.8), title)
         tb = s12.shapes.add_textbox(left_pos + Inches(0.15), Inches(3.7), Inches(3.4), Inches(3.0))
         tf = tb.text_frame
         tf.word_wrap = True

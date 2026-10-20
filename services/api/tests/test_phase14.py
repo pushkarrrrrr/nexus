@@ -401,6 +401,10 @@ async def test_system_status_phase14():
         res = await client.get("/api/v1/system/status")
         assert res.status_code == 200
         data = res.json()
-        assert data["phase"] in ("phase_14_autonomous_triggers", "phase_15_self_correction_recovery")
+        assert data["phase"] in (
+            "phase_14_autonomous_triggers",
+            "phase_15_self_correction_recovery",
+            "phase_16_academic_benchmarking_evaluation",
+        )
         assert "ambient" in data["supported_surfaces"]
         assert "dashboard" in data["supported_surfaces"]

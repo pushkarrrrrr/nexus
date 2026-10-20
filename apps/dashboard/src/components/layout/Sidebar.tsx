@@ -75,7 +75,7 @@ const navGroups: NavGroup[] = [
   {
     label: "System",
     items: [
-      { name: "Analytics", href: "/analytics", icon: LineChart },
+      { name: "Benchmarks & Eval", href: "/analytics", icon: LineChart, badge: "v16", badgeVariant: "cyan" },
       { name: "Settings", href: "/settings", icon: Settings },
     ],
   },

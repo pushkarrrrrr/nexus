@@ -500,6 +500,9 @@ async def test_system_status_phase15():
         res = await client.get("/api/v1/system/status")
         assert res.status_code == 200
         data = res.json()
-        assert data["phase"] == "phase_15_self_correction_recovery"
+        assert data["phase"] in (
+            "phase_15_self_correction_recovery",
+            "phase_16_academic_benchmarking_evaluation",
+        )
         assert "dashboard" in data["supported_surfaces"]
         assert "ambient" in data["supported_surfaces"]

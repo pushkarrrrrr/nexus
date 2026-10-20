@@ -588,3 +588,49 @@ User Voice / Text Interaction
          ├── Zero-dependency TCC accessibility permission checks
          └── Non-blocking background text-to-speech with Apple Siri female voice (`say -v Tara`)
 ```
+
+---
+
+## 17. Academic Benchmarking, Formal Ablation Evaluation Suite & Telemetry (Phase 16)
+
+```
+Benchmark Dataset Cohort (N=25 Deterministic Tasks)
+   │
+   ├── [5 Evaluation Domains (`packages/shared/nexus_shared/evaluation/datasets.py`)]
+   │     ├── `software_engineering`: Multi-step AST parsing, code modification diffs, pytest regression verification
+   │     ├── `graph_rag_reasoning`: Recursive CTE entity graph traversal, 2-hop neighborhood expansion, shortest-path reasoning
+   │     ├── `fault_recovery`: Simulated tool crash & missing Docker socket triggering Phase 15 dynamic DAG grafting & rollback
+   │     ├── `safety_enforcement`: Adversarial dangerous commands (`rm -rf /`) verifying Policy Engine CRITICAL quarantine
+   │     └── `os_computer_control`: Window enumeration and sub-70ms local regex screen perception
+   │
+   ├── [Progressive Ablation Matrix (`packages/shared/nexus_shared/evaluation/schemas.py`)]
+   │     ├── 1. Baseline Conversational LLM (ReAct)
+   │     ├── 2. Single-Pass Plan & Execute
+   │     ├── 3. NEXUS w/o Knowledge Graph (Keyword RAG)
+   │     ├── 4. NEXUS w/o Self-Correction (Fail-Stop)
+   │     ├── 5. NEXUS w/o Fast OS Dispatch (Pure LLM Route)
+   │     └── 6. NEXUS Full Operating Layer (Our Proposal)
+   │
+   ├── [Evaluation Runner (`packages/shared/nexus_shared/evaluation/runner.py`)]
+   │     ├── Measures Task Success Rate (%), Planning Accuracy (%), Tool F1, Latency (ms), Tokens & Cost ($)
+   │     ├── Enforces Zero Safety Violations policy check
+   │     └── Verifies SnapshotManager state rollback on recovery tasks
+   │
+   ├── [Academic Exporters (`packages/shared/nexus_shared/evaluation/exporter.py`)]
+   │     ├── LaTeX Table Generator: Publication-grade booktabs table with bold optimal scores for paper inclusion
+   │     └── CSV Dataset Exporter: Granular per-task telemetry and aggregated ablation matrix
+   │
+   ├── [REST API Layer (`services/api/nexus_api/routes/v1/evaluation.py`)]
+   │     ├── `GET /api/v1/evaluation/benchmarks`: Enumerate tasks and domain distributions
+   │     ├── `POST /api/v1/evaluation/run`: Execute live benchmark evaluation runs
+   │     ├── `GET /api/v1/evaluation/ablations`: Retrieve pre-computed formal ablation matrix
+   │     ├── `GET /api/v1/evaluation/export/latex`: Export ready-to-publish LaTeX table
+   │     └── `GET /api/v1/evaluation/export/csv`: Export CSV data for plotting
+   │
+   └── [Dashboard UI Cockpit (`apps/dashboard/app/analytics/page.tsx`)]
+         ├── Benchmarks & Evaluation Cockpit (`/analytics`)
+         ├── Animated 4-stage Live Benchmark Execution Runner
+         ├── Domain Filtering Pills & Empirical Performance Comparison Matrix
+         ├── LaTeX Paper Modal with 1-click clipboard copy
+         └── Direct CSV Dataset Download
+```

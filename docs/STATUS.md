@@ -1,12 +1,65 @@
 # NEXUS Project Status & Phase Log
 
-### Current Status: Phase 15 — Autonomous Self-Correction, Dynamic Replanning & macOS Ambient Voice Perception (COMPLETED)
+### Current Status: Phase 16 — Academic Benchmarking, Formal Ablation Evaluation Suite & Capstone Finalization (COMPLETED)
 
-Last Updated: 2026-10-15
+Last Updated: 2026-10-20
 
 ---
 
-## 1. Completed Work in Phase 15: Autonomous Self-Correction, Dynamic Replanning & Error Recovery
+## 1. Completed Work in Phase 16: Academic Benchmarking, Formal Ablation Evaluation Suite & Capstone Finalization
+- [x] **Standardized Academic Benchmark Cohort (N=25 Deterministic Tasks)**:
+  - Implemented `packages/shared/nexus_shared/evaluation/datasets.py` with 25 curated tasks across 5 core research domains:
+    1. `software_engineering`: Multi-step code analysis, AST transformations, test running, and regression validation.
+    2. `graph_rag_reasoning`: Recursive CTE entity-relation graph traversal, multi-hop neighborhood queries, shortest-path reasoning.
+    3. `fault_recovery`: Simulated runtime failures, tool crashes, missing container sockets, triggering Phase 15 dynamic DAG grafting and rollback.
+    4. `safety_enforcement`: Adversarial probes (e.g. destructive `rm -rf /`, privilege escalation) testing Policy Engine CRITICAL quarantine.
+    5. `os_computer_control`: Native accessibility screen perception, window listing, and sub-70ms local regex dispatch.
+- [x] **Architectural Ablation Matrix (6 Progressive Configurations)**:
+  - Formally compared 6 distinct architectural levels in `AblationConfig`:
+    1. *1. Baseline Conversational LLM (ReAct)*: Vanilla ReAct loop without DAG planning, graph memory, policy engine, or self-correction.
+    2. *2. Single-Pass Plan & Execute*: Linear task decomposition without error recovery.
+    3. *3. NEXUS w/o Knowledge Graph (Keyword RAG)*: Standard keyword vector search; recursive CTE entity graph disabled.
+    4. *4. NEXUS w/o Self-Correction (Fail-Stop)*: Full system without automated fault classification, rollback, or DAG grafting.
+    5. *5. NEXUS w/o Fast OS Dispatch (Pure LLM Route)*: Remote LLM for all OS actions.
+    6. *6. NEXUS Full Operating Layer (Our Proposal)*: Multi-Agent DAG Planning + Graph-RAG + Policy Engine + Self-Correction + Sub-70ms Local OS Dispatch.
+- [x] **Evaluation Runner & Empirical Telemetry Engine**:
+  - `packages/shared/nexus_shared/evaluation/runner.py`: `BenchmarkRunner` computing granular `TaskRunResult` metrics:
+    - End-to-end Task Success Rate (%)
+    - DAG Planning & Topological Accuracy (%)
+    - Tool Selection Precision, Recall, and F1 Score
+    - Latency (milliseconds and seconds)
+    - Prompt, Completion, and Total Token Consumption
+    - Cost per Task ($ USD)
+    - Safety Violations (unauthorized critical commands)
+    - Fault Recovery Rate (%) and Rollback State Verification
+- [x] **Publication-Grade Academic Exporters**:
+  - `packages/shared/nexus_shared/evaluation/exporter.py`: `AcademicTableExporter`:
+    - `to_latex_table()`: Generates publication-ready LaTeX tables formatted with `booktabs`, centered columns, resizebox, captions, labels, and bolded optimal metrics.
+    - `to_csv()`: Exports aggregated summary metrics across configurations.
+    - `results_to_csv()`: Granular task-by-task execution traces and per-metric telemetry for statistical plotting.
+- [x] **FastAPI REST API Endpoints**:
+  - `GET /api/v1/evaluation/benchmarks`: Enumerate tasks and category distributions with query filters.
+  - `POST /api/v1/evaluation/run`: Execute live evaluation suite across tasks or custom ablation configurations.
+  - `GET /api/v1/evaluation/ablations`: Retrieve cached formal ablation performance matrix.
+  - `GET /api/v1/evaluation/export/latex`: Publication-ready LaTeX export endpoint.
+  - `GET /api/v1/evaluation/export/csv`: Standard CSV dataset export for matplotlib / R dataframes.
+- [x] **Dashboard UI — Academic Benchmarking & Formal Ablation Studies Cockpit**:
+  - `apps/dashboard/app/analytics/page.tsx`: Complete dashboard surface:
+    - Interactive 4-stage live benchmark runner with animated progression and terminal execution logs.
+    - Category domain pills (`ALL`, `Software Engineering`, `Graph-RAG`, `Fault Recovery`, `Safety`, `OS Control`).
+    - Side-by-side empirical performance matrix comparing all 6 configurations with green delta badges.
+    - Modal with 1-click clipboard copy for publication-ready LaTeX code.
+    - Direct CSV dataset download button.
+    - Updated `Sidebar.tsx` navigation with "Benchmarks & Eval" link and `v16` badge.
+- [x] **Comprehensive Verification**:
+  - **7/7 tests passing** in `services/api/tests/test_phase16_evaluation.py`.
+  - **212/212 tests passing** across the entire backend test suite.
+  - Clean TypeScript compilation across `@nexus/types`, `@nexus/ambient`, and `@nexus/dashboard`.
+  - Production bundle builds succeed with 0 errors (`next build` across 21 static routes, `vite build`).
+
+---
+
+## 2. Completed Work in Phase 15: Autonomous Self-Correction, Dynamic Replanning & Error Recovery
 - [x] **Database Schema & Migration**:
   - Created Alembic migration `011_self_correction_recovery.py` (`down_revision = "010_proactive_triggers"`).
   - Added table `replan_records` with structured fields: `id`, `plan_id`, `original_step_id`, `failed_action`, `error_category`, `reflection_summary`, `proposed_steps`, `recovery_strategy`, `reversal_snapshot_id`, `status`, `replan_count`, `created_at`.
@@ -35,13 +88,10 @@ Last Updated: 2026-10-15
   - Added Visual Side-by-Side DAG Comparison comparing original blocked graph against dynamically spliced recovery graph.
   - Added Persistent Reflection Audit Ledger with strategy filtering and full JSON diagnostic modal.
   - Added "Self-Correction" navigation item with `v15` badge in `Sidebar.tsx`.
-- [x] **Verification & Test Suite**:
-  - **8/8 tests passing** in `services/api/tests/test_phase15.py` and **205/205 tests passing** across the entire backend test suite.
-  - Clean TypeScript compilation across `@nexus/ambient` and `@nexus/dashboard`.
 
 ---
 
-## 2. Completed Work: Full macOS Ambient Voice & Screen Perception Engine
+## 3. Completed Work: Full macOS Ambient Voice & Screen Perception Engine
 - [x] **macOS Adapter & Native Engine Extensions**:
   - Extended `ComputerControlAdapter` ([packages/shared/nexus_shared/computer/base.py](file:///Users/apple/coding%20/nexus/packages/shared/nexus_shared/computer/base.py)) and `MacOSAdapter` ([packages/shared/nexus_shared/computer/macos.py](file:///Users/apple/coding%20/nexus/packages/shared/nexus_shared/computer/macos.py)) with complete OS perception and control:
     - `scroll(direction, amount)`: Native AppleScript/Quartz scrolling.
@@ -61,13 +111,10 @@ Last Updated: 2026-10-15
   - Built interactive 480×260 floating HUD with quick action pills (`📜 Scroll Down`, `🖥️ Read Screen`, `🪟 Windows`, `🎵 Spotify`).
   - Added `-webkit-app-region: no-drag` across all inputs and buttons to ensure zero event interception in Tauri WKWebView.
   - Added 500ms fast silence endpointing in [VoiceOrb.tsx](file:///Users/apple/coding%20/nexus/apps/ambient/src/components/VoiceOrb.tsx) eliminating 1.2s–1.8s of Web Speech dead time.
-- [x] **Verification**:
-  - **33/33 tests passing** across `services/api/tests/test_ambient_voice_screen.py`, `test_ambient_chat.py`, and `test_macos_connector.py`.
-  - Frontend typecheck passes cleanly (`tsc --noEmit`).
 
 ---
 
-## 3. Prior Completed Phases
+## 4. Prior Completed Phases (Phases 0 through 14)
 - [x] **Phase 14 — Autonomous Proactive Watchers, Event Triggers & Self-Healing Engine** (182/182 tests)
 - [x] **Phase 13 — Browser Automation & External Integrations** (169/169 tests)
 - [x] **Phase 12 — Ambient NEXUS Desktop Layer** (Tauri Rust core, global shortcut, transparent HUD)
@@ -86,7 +133,9 @@ Last Updated: 2026-10-15
 
 ---
 
-## 4. Next Phase: Phase 16
-- Phase 16: Academic Benchmarking, Formal Ablation Evaluation Suite & Capstone Finalization.
+## 5. Next Steps / Future Scope
+- **Multimodal Screen Vision**: Real-time visual computer control extending beyond accessibility trees to raw canvas applications and legacy desktop GUIs.
+- **Hardware-Gated Approvals**: WebAuthn and Touch ID signing for CRITICAL-tier actions.
+- **Cross-Platform Adapters**: Full Linux (D-Bus/Wayland) and Windows (UI Automation) desktop parity.
 
 

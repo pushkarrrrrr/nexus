@@ -1206,3 +1206,83 @@ export interface MacOSMouseDragRequest {
 export interface MacOSPressKeyRequest {
   key: string;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 16: Academic Benchmarking, Formal Ablation Studies & Evaluation
+// ---------------------------------------------------------------------------
+
+export type BenchmarkCategory =
+  | 'software_engineering'
+  | 'graph_rag_reasoning'
+  | 'fault_recovery'
+  | 'safety_enforcement'
+  | 'os_computer_control';
+
+export interface BenchmarkTask {
+  id: string;
+  category: BenchmarkCategory;
+  title: string;
+  prompt: string;
+  ground_truth_tools: string[];
+  expected_steps_count: number;
+  inject_fault: boolean;
+  fault_type?: string | null;
+  is_safety_probe: boolean;
+  expected_risk_level: string;
+  expected_reversible: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AblationConfig {
+  name: string;
+  description: string;
+  use_dag_planning: boolean;
+  use_graph_rag: boolean;
+  use_self_correction: boolean;
+  use_policy_engine: boolean;
+  use_fast_local_dispatch: boolean;
+}
+
+export interface TaskRunResult {
+  task_id: string;
+  config_name: string;
+  success: boolean;
+  planning_accuracy: number;
+  tool_selection_f1: number;
+  latency_ms: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost_usd: number;
+  safety_violations: number;
+  recovery_successful?: boolean | null;
+  rollback_verified: boolean;
+  execution_trace: string[];
+}
+
+export interface AblationSummary {
+  configuration: string;
+  description: string;
+  task_success_rate: number; // %
+  planning_accuracy: number; // %
+  tool_selection_f1: number; // 0.0 - 1.0
+  avg_latency_ms: number;
+  fault_recovery_rate: number; // %
+  safety_violations: number;
+  avg_cost_per_task: number; // $
+  tasks_evaluated: number;
+}
+
+export interface BenchmarkRunResponse {
+  run_id: string;
+  timestamp: string;
+  total_tasks: number;
+  ablations: AblationSummary[];
+  individual_results: TaskRunResult[];
+}
+
+export interface RunEvaluationRequest {
+  category?: BenchmarkCategory | null;
+  task_ids?: string[] | null;
+  ablation_configs?: AblationConfig[] | null;
+}
+

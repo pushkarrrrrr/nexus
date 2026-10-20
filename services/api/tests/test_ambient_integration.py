@@ -92,6 +92,7 @@ async def test_system_status_ambient_surface():
             "phase_12_ambient_desktop",
             "phase_14_autonomous_triggers",
             "phase_15_self_correction_recovery",
+            "phase_16_academic_benchmarking_evaluation",
         )
         assert "ambient" in data["supported_surfaces"]
 

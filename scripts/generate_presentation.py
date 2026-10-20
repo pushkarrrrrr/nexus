@@ -1,9 +1,9 @@
-import sys
 from pptx import Presentation
-from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.text import PP_ALIGN
+from pptx.util import Inches, Pt
+
 
 def create_deck():
     prs = Presentation()
@@ -13,7 +13,6 @@ def create_deck():
     blank_layout = prs.slide_layouts[6]
 
     # Professional Color Palette
-    BG_COLOR = RGBColor(248, 250, 252)       # Slate 50
     CARD_BG = RGBColor(255, 255, 255)        # Pure White
     CARD_BORDER = RGBColor(226, 232, 240)    # Slate 200
     PRIMARY = RGBColor(15, 23, 42)           # Slate 900
@@ -120,7 +119,7 @@ def create_deck():
     pp3.font.color.rgb = TEXT_BODY
     pp3.space_before = Pt(10)
 
-    card_team = add_card(s1, Inches(1.5), Inches(4.7), Inches(5.0), Inches(2.2), "Presented By: Group A5")
+    add_card(s1, Inches(1.5), Inches(4.7), Inches(5.0), Inches(2.2), "Presented By: Group A5")
     team_tb = s1.shapes.add_textbox(Inches(1.7), Inches(5.2), Inches(4.6), Inches(1.6))
     ttf = team_tb.text_frame
     members = [
@@ -137,7 +136,7 @@ def create_deck():
         tp.font.color.rgb = TEXT_BODY
         tp.space_before = Pt(3)
 
-    card_guide = add_card(s1, Inches(6.8), Inches(4.7), Inches(5.0), Inches(2.2), "Under the Guidance of")
+    add_card(s1, Inches(6.8), Inches(4.7), Inches(5.0), Inches(2.2), "Under the Guidance of")
     guide_tb = s1.shapes.add_textbox(Inches(7.0), Inches(5.3), Inches(4.6), Inches(1.4))
     gtf = guide_tb.text_frame
     gp1 = gtf.paragraphs[0]
@@ -176,7 +175,7 @@ def create_deck():
 
     for i, (num, title, desc) in enumerate(toc_items_left):
         top_pos = Inches(1.7 + i * 0.88)
-        card = add_card(s2, Inches(0.8), top_pos, Inches(5.6), Inches(0.8))
+        add_card(s2, Inches(0.8), top_pos, Inches(5.6), Inches(0.8))
         tb = s2.shapes.add_textbox(Inches(1.0), top_pos + Inches(0.08), Inches(5.2), Inches(0.65))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -194,7 +193,7 @@ def create_deck():
 
     for i, (num, title, desc) in enumerate(toc_items_right):
         top_pos = Inches(1.7 + i * 0.88)
-        card = add_card(s2, Inches(6.8), top_pos, Inches(5.6), Inches(0.8))
+        add_card(s2, Inches(6.8), top_pos, Inches(5.6), Inches(0.8))
         tb = s2.shapes.add_textbox(Inches(7.0), top_pos + Inches(0.08), Inches(5.2), Inches(0.65))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -353,7 +352,7 @@ def create_deck():
 
     for i, (title, subtitle, bullets) in enumerate(tiers):
         left_pos = Inches(0.8 + i * 2.98)
-        card = add_card(s5, left_pos, Inches(1.8), Inches(2.8), Inches(5.1), title)
+        add_card(s5, left_pos, Inches(1.8), Inches(2.8), Inches(5.1), title)
         tb = s5.shapes.add_textbox(left_pos + Inches(0.15), Inches(2.4), Inches(2.5), Inches(4.3))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -393,7 +392,7 @@ def create_deck():
         left_pos = Inches(0.8 + col * 4.0)
         top_pos = Inches(1.8 + row * 2.65)
         
-        card = add_card(s6, left_pos, top_pos, Inches(3.7), Inches(2.4), f"{s_num}: {s_title}")
+        add_card(s6, left_pos, top_pos, Inches(3.7), Inches(2.4), f"{s_num}: {s_title}")
         tb = s6.shapes.add_textbox(left_pos + Inches(0.2), top_pos + Inches(0.55), Inches(3.3), Inches(1.7))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -494,7 +493,7 @@ def create_deck():
 
     for i, (m_title, m_ver, m_role, m_points) in enumerate(models):
         left_pos = Inches(0.8 + i * 2.98)
-        card = add_card(s8, left_pos, Inches(1.8), Inches(2.8), Inches(5.1), m_title)
+        add_card(s8, left_pos, Inches(1.8), Inches(2.8), Inches(5.1), m_title)
         tb = s8.shapes.add_textbox(left_pos + Inches(0.15), Inches(2.4), Inches(2.5), Inches(4.3))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -552,14 +551,14 @@ def create_deck():
             ("Playwright", "Persistent Chromium automation behind SSRF guards"),
             ("macOS JXA", "AppleScript/JXA UI element traversal"),
             ("Quartz / CoreGraphics", "Native ctypes mouse & keyboard event synthesis"),
-            ("Pytest", "194 automated unit and integration tests passing"),
+            ("Pytest", "213 automated unit and integration tests passing"),
             ("Ruff & Mypy", "Fast linting, formatting, and strict type checking")
         ])
     ]
 
     for i, (cat_title, tech_list) in enumerate(tech_categories):
         left_pos = Inches(0.8 + i * 2.98)
-        card = add_card(s9, left_pos, Inches(1.8), Inches(2.8), Inches(5.1), cat_title)
+        add_card(s9, left_pos, Inches(1.8), Inches(2.8), Inches(5.1), cat_title)
         tb = s9.shapes.add_textbox(left_pos + Inches(0.15), Inches(2.4), Inches(2.5), Inches(4.3))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -654,7 +653,7 @@ def create_deck():
 
     for i, (title, sub, bullets) in enumerate(demerits):
         left_pos = Inches(0.8 + i * 2.98)
-        card = add_card(s11, left_pos, Inches(1.8), Inches(2.8), Inches(5.1), title, border_color=RGBColor(254, 205, 211))
+        add_card(s11, left_pos, Inches(1.8), Inches(2.8), Inches(5.1), title, border_color=RGBColor(254, 205, 211))
         tb = s11.shapes.add_textbox(left_pos + Inches(0.15), Inches(2.4), Inches(2.5), Inches(4.3))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -705,7 +704,7 @@ def create_deck():
         left_pos = Inches(0.8 + col * 5.95)
         top_pos = Inches(1.8 + row * 2.65)
         
-        card = add_card(s12, left_pos, top_pos, Inches(5.6), Inches(2.4), title)
+        add_card(s12, left_pos, top_pos, Inches(5.6), Inches(2.4), title)
         tb = s12.shapes.add_textbox(left_pos + Inches(0.2), top_pos + Inches(0.55), Inches(5.2), Inches(1.7))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -773,7 +772,7 @@ def create_deck():
 
     for i, (title, bullets) in enumerate(concl_cards):
         left_pos = Inches(0.8 + i * 3.98)
-        card = add_card(s13, left_pos, Inches(3.3), Inches(3.7), Inches(3.6), title)
+        add_card(s13, left_pos, Inches(3.3), Inches(3.7), Inches(3.6), title)
         tb = s13.shapes.add_textbox(left_pos + Inches(0.15), Inches(3.9), Inches(3.4), Inches(2.8))
         tf = tb.text_frame
         tf.word_wrap = True

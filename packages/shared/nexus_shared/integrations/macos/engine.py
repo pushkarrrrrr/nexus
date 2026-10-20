@@ -146,6 +146,9 @@ def _load_macos_frameworks() -> tuple[Any, Any]:
             _cf_lib = ctypes.cdll.LoadLibrary(
                 "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
             )
+            if hasattr(_cf_lib, "CFRelease"):
+                _cf_lib.CFRelease.argtypes = [ctypes.c_void_p]
+                _cf_lib.CFRelease.restype = None
         except OSError:
             _cf_lib = None
     return _cg_lib, _cf_lib

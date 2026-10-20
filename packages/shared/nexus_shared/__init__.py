@@ -31,6 +31,16 @@ from .errors import (
     TaskNotFoundError,
     ToolExecutionError,
 )
+from .evaluation import (
+    BENCHMARK_TASKS,
+    AblationConfig,
+    AblationSummary,
+    AcademicTableExporter,
+    BenchmarkCategory,
+    BenchmarkRunner,
+    BenchmarkRunResponse,
+    BenchmarkTask,
+)
 from .logging import configure_logging, get_logger
 from .models import (
     ActionSnapshotModel,
@@ -71,12 +81,20 @@ from .reversal import SnapshotManager
 from .tools import BaseTool, ToolRegistry, ToolResult, get_tool_registry
 
 __all__ = [
+    "BENCHMARK_TASKS",
+    "AblationConfig",
+    "AblationSummary",
+    "AcademicTableExporter",
     "ActionSnapshotModel",
     "AnthropicProvider",
     "ApprovalRequestModel",
     "AuditLogModel",
     "Base",
     "BaseTool",
+    "BenchmarkCategory",
+    "BenchmarkRunResponse",
+    "BenchmarkRunner",
+    "BenchmarkTask",
     "CapabilityDefinition",
     "CapabilityModel",
     "CapabilityRegistry",
