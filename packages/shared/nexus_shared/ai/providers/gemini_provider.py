@@ -39,7 +39,7 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
         self,
         api_key: str = "",
         base_url: str = "https://generativelanguage.googleapis.com/v1beta",
-        default_model: str = "gemini-3.5-flash-lite",
+        default_model: str = "gemini-2.5-flash",
         default_embedding_model: str = "text-embedding-004",
         timeout_sec: float = 30.0,
     ) -> None:
@@ -106,7 +106,7 @@ class GeminiProvider(LLMProvider, EmbeddingProvider):
         clean_model = model_name.removeprefix("models/")
         # Fallback models — only used when the primary model is unavailable (404).
         # Do NOT fall through on auth/rate-limit errors to avoid masking real issues.
-        fallback_models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash"]
+        fallback_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
         candidate_models = [clean_model] + [m for m in fallback_models if m != clean_model]
 
         last_exc: Exception | None = None

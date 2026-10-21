@@ -204,7 +204,7 @@ async def process_command_with_gemini(
         req = CompletionRequest(
             prompt=prompt,
             system_prompt=system_prompt,
-            model="gemini-3.5-flash-lite",
+            model="gemini-2.5-flash",
             temperature=0.1,
             max_tokens=180,
         )

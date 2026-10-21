@@ -94,8 +94,8 @@ export async function sendAmbientChatMessage(
 
   // 2. Race both Gemini fallback models simultaneously for lowest latency.
   const geminiResult = await Promise.any([
-    tryGeminiDirect("gemini-3.5-flash-lite", cleanMsg),
-    tryGeminiDirect("gemini-3.1-flash-lite", cleanMsg),
+    tryGeminiDirect("gemini-2.5-flash", cleanMsg),
+    tryGeminiDirect("gemini-2.0-flash", cleanMsg),
   ]).catch(() => null);
 
   if (geminiResult) return geminiResult;

@@ -140,6 +140,15 @@ export const VoiceOrb: React.FC<VoiceOrbProps> = ({
       let silenceTimer: ReturnType<typeof setTimeout> | null = null;
 
       recognition.onresult = (event: any) => {
+        // Echo cancellation: Do not listen to self while assistant is speaking or processing
+        if (isSpeakingRef.current || isProcessingRef.current) {
+          if (silenceTimer) {
+            clearTimeout(silenceTimer);
+            silenceTimer = null;
+          }
+          return;
+        }
+
         let currentTranscript = "";
         let hasFinal = false;
 
@@ -150,10 +159,11 @@ export const VoiceOrb: React.FC<VoiceOrbProps> = ({
           }
         }
         const clean = currentTranscript.trim();
-        if (!clean) return;
+        if (!clean || clean.length < 2) return;
 
-        // 1. If Chrome explicitly emitted isFinal, dispatch immediately
-        if (hasFinal) {
+        // If user finished a substantive command (>3 words or punctuation), dispatch on final
+        const words = clean.split(/\s+/);
+        if (hasFinal && (words.length >= 3 || /[.?!]$/.test(clean))) {
           if (silenceTimer) {
             clearTimeout(silenceTimer);
             silenceTimer = null;
@@ -165,16 +175,16 @@ export const VoiceOrb: React.FC<VoiceOrbProps> = ({
           return;
         }
 
-        // 2. Fast endpointing: dispatch after 500ms pause instead of waiting 1.5s for Chrome isFinal
+        // Natural conversational pause (1200ms) giving the user time to breathe and finish
         if (silenceTimer) clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
-          if (clean.length > 1) {
+          if (clean.length > 1 && !isSpeakingRef.current && !isProcessingRef.current) {
             triggerGleam();
             if (onSpeechEnd) {
               onSpeechEnd(clean);
             }
           }
-        }, 500);
+        }, 1200);
       };
 
       recognition.onerror = (event: any) => {

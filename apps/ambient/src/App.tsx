@@ -95,8 +95,10 @@ export default function App() {
       setIsProcessing(true);
       setErrorMessage(null);
 
-      // Check for standalone greetings ("hello", "hey", "hi", "hey nexus", etc.)
-      const isPureGreeting = /^(?:hey|hi|hello|namaste|oye|suno)?\s*(?:nexus|nuxus|nexas|nexis)?\s*[!.,?]?$/i.test(clean);
+      // Check for standalone greetings ("hello", "hey", "hi", "namaste", etc.)
+      const isPureGreeting =
+        /^(?:hey|hi|hello|namaste|oye|suno)\s*(?:nexus|nuxus|nexas|nexis)?[!.,?]?$/i.test(clean) ||
+        /^(?:nexus|nuxus|nexas|nexis)[!.,?]?$/i.test(clean);
       if (isPureGreeting) {
         setIsSpeaking(true);
         isSpeakingRef.current = true;

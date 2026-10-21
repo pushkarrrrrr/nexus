@@ -83,7 +83,7 @@ async def ambient_chat(
         completion_req = CompletionRequest(
             prompt=augmented_prompt,
             system_prompt=system_prompt_full,
-            model="gemini-3.5-flash-lite",
+            model="gemini-2.5-flash",
             temperature=0.7,
             max_tokens=150,
         )
