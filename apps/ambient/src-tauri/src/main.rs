@@ -230,15 +230,15 @@ fn speak_text(text: String, voice: Option<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn check_engine_status() -> Result<bool, String> {
-    Ok(tokio::net::TcpStream::connect("127.0.0.1:8000").await.is_ok())
+fn check_engine_status() -> Result<bool, String> {
+    let addr: std::net::SocketAddr = ([127, 0, 0, 1], 8000).into();
+    Ok(std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok())
 }
 
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
-use tokio::net::TcpStream;
 
 /// Structure to locate and supervise the embedded backend engine sidecar.
 pub struct EngineSupervisor {
@@ -263,9 +263,11 @@ impl EngineSupervisor {
         }
     }
 
-    pub async fn ensure_running(&self, binary_path: PathBuf) {
+    pub fn ensure_running(&self, binary_path: PathBuf) {
+        let addr: std::net::SocketAddr = ([127, 0, 0, 1], 8000).into();
+
         // 1. Check if port 8000 is already active
-        if TcpStream::connect("127.0.0.1:8000").await.is_ok() {
+        if std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok() {
             eprintln!("[NEXUS Supervisor] Backend engine is already active on port 8000. Reusing existing instance.");
             return;
         }
@@ -300,8 +302,8 @@ impl EngineSupervisor {
 
                 // Poll port 8000 for up to 5 seconds
                 for i in 0..50 {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                    if TcpStream::connect("127.0.0.1:8000").await.is_ok() {
+                    std::thread::sleep(Duration::from_millis(100));
+                    if std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
                         eprintln!("[NEXUS Supervisor] Backend engine verified healthy after {}ms!", (i + 1) * 100);
                         break;
                     }
@@ -409,11 +411,11 @@ fn main() {
                 eprintln!("[NEXUS Ambient] Warning: Failed to register Cmd+Shift+P shortcut: {err}");
             }
 
-            // Supervise backend engine lifecycle
+            // Supervise backend engine lifecycle in background thread
             if let Some(bin) = find_engine_binary(app.handle()) {
                 let sup = supervisor_setup.clone();
-                tokio::spawn(async move {
-                    sup.ensure_running(bin).await;
+                std::thread::spawn(move || {
+                    sup.ensure_running(bin);
                 });
             } else {
                 eprintln!("[NEXUS Ambient] Notice: Sidecar binary not found at default paths. Assuming standalone server on 127.0.0.1:8000.");
