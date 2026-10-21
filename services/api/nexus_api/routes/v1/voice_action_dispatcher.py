@@ -254,7 +254,11 @@ async def execute_action_plan(actions: list[dict[str, Any]], reply_text: str) ->
 
         try:
             if atype == "close_app":
-                app_name = normalize_app_name(target) if target else "Spotify"
+                if not target or target.lower() in ("current", "active", "this", "it", "app", "window", "application"):
+                    frontmost = await adapter.get_frontmost_app()
+                    app_name = frontmost if frontmost and frontmost not in ("NEXUS Ambient", "Nexus Ambient", "nexus-ambient") else "Spotify"
+                else:
+                    app_name = normalize_app_name(target)
                 logger.info("gemini_exec_close_app", app=app_name)
                 res = await adapter.close_application(app_name)
                 results.append(res)
@@ -430,14 +434,19 @@ async def try_dispatch_voice_action(message: str, context: dict[str, Any] | None
         if now - INTERACTIVE_STATE.get("timestamp", 0) < 90.0:
             state_type = INTERACTIVE_STATE.get("type")
 
-            # Check if user explicitly wants to cancel
-            if re.search(r"\b(cancel|stop|kuch\s*nahi|rehne\s*do|no|nahi)\b", text):
+            # Check if user explicitly wants to cancel or stop
+            if re.search(r"\b(cancel|stop|kuch\s*nahi|rehne\s*do|no|nahi|mat\s*karo|ruko|chhod\s*do)\b", text):
                 INTERACTIVE_STATE = None
                 return {
                     "action": "interactive.cancelled",
                     "reply": "Theek hai, cancel kar diya.",
                     "voice": "Cancelled.",
                 }
+
+            # If user wants to close an app or quit, clear interactive state immediately so it doesn't hijack the command
+            if re.search(r"\b(band|close|quit|exit|kill|hata\s*do)\b", text):
+                logger.info("ambient_interactive_cleared_for_close_intent")
+                INTERACTIVE_STATE = None
         else:
             INTERACTIVE_STATE = None
 
@@ -482,7 +491,7 @@ async def try_dispatch_voice_action(message: str, context: dict[str, Any] | None
         logger.info("ambient_multi_task_queue_detected", tasks=sub_tasks)
         executed_replies: list[str] = []
         for task_item in sub_tasks:
-            res = await _execute_single_voice_action(task_item)
+            res = await _execute_single_voice_action(task_item, merged_context)
             if res and res.get("reply"):
                 executed_replies.append(res["reply"])
 
@@ -524,7 +533,7 @@ async def try_dispatch_voice_action(message: str, context: dict[str, Any] | None
     # -------------------------------------------------------------------------
     # 0.4.1 Fast Local Single Action Dispatch (Instant <15ms execution for all standard macOS commands)
     # -------------------------------------------------------------------------
-    local_action = await _execute_single_voice_action(clean)
+    local_action = await _execute_single_voice_action(clean, merged_context)
     if local_action:
         logger.info("ambient_fast_local_action_dispatched", action=local_action.get("action"))
         return local_action
@@ -553,32 +562,66 @@ async def try_dispatch_voice_action(message: str, context: dict[str, Any] | None
         state_type = INTERACTIVE_STATE.get("type")
         if state_type == "awaiting_youtube_query":
             INTERACTIVE_STATE = None
+            if re.search(r"\b(cancel|stop|rehne\s*do|kuch\s*nahi|mat\s*karo|no|nahi|close|band|quit|exit|kill|ruko|chhod\s*do)\b", text):
+                if any(k in text for k in ("close", "band", "quit", "exit", "kill")):
+                    await adapter.close_application("YouTube")
+                    return {
+                        "action": "applications.close",
+                        "application": "YouTube",
+                        "reply": "YouTube close kar diya gaya hai.",
+                        "voice": "Closed YouTube.",
+                    }
+                return {
+                    "action": "interactive.cancelled",
+                    "reply": "Theek hai, cancel kar diya.",
+                    "voice": "Cancelled.",
+                }
             clean_query = re.sub(r"\b(play|kro|karo|chalao|lagao|video|vide|song|gaana|gana)\b", "", text).strip()
-            query = clean_query or text
-            logger.info("ambient_interactive_youtube_play", query=query)
-            await adapter.search_youtube(query)
-            return {
-                "action": "youtube.play",
-                "query": query,
-                "reply": f"YouTube par '{query}' play kar diya hai!",
-                "voice": f"Playing {query} on YouTube.",
-            }
+            if clean_query and not re.search(r"^(kuch|yeh|ye|mera|app|application|this|it)$", clean_query):
+                logger.info("ambient_interactive_youtube_play", query=clean_query)
+                await adapter.search_youtube(clean_query)
+                return {
+                    "action": "youtube.play",
+                    "query": clean_query,
+                    "reply": f"YouTube par '{clean_query}' play kar diya hai!",
+                    "voice": f"Playing {clean_query} on YouTube.",
+                }
 
         if state_type == "awaiting_spotify_query":
             INTERACTIVE_STATE = None
+            if re.search(r"\b(cancel|stop|rehne\s*do|kuch\s*nahi|mat\s*karo|no|nahi|close|band|quit|exit|kill|ruko|chhod\s*do)\b", text):
+                if any(k in text for k in ("close", "band", "quit", "exit", "kill")):
+                    await adapter.close_application("Spotify")
+                    return {
+                        "action": "applications.close",
+                        "application": "Spotify",
+                        "reply": "Spotify close kar diya gaya hai.",
+                        "voice": "Closed Spotify.",
+                    }
+                return {
+                    "action": "interactive.cancelled",
+                    "reply": "Theek hai, cancel kar diya.",
+                    "voice": "Cancelled.",
+                }
             clean_song = re.sub(r"\b(play|kro|karo|chalao|lagao|song|gaana|gana|track)\b", "", text).strip()
-            song = clean_song or text
-            logger.info("ambient_interactive_spotify_play", query=song)
-            await adapter.spotify_play(song)
-            return {
-                "action": "spotify.play_song",
-                "query": song,
-                "reply": f"Spotify par '{song}' play kar diya!",
-                "voice": f"Playing {song} on Spotify.",
-            }
+            if clean_song and not re.search(r"^(kuch|yeh|ye|mera|app|application|this|it)$", clean_song):
+                logger.info("ambient_interactive_spotify_play", query=clean_song)
+                await adapter.spotify_play(clean_song)
+                return {
+                    "action": "spotify.play_song",
+                    "query": clean_song,
+                    "reply": f"Spotify par '{clean_song}' play kar diya!",
+                    "voice": f"Playing {clean_song} on Spotify.",
+                }
 
         if state_type == "awaiting_notes_content":
             INTERACTIVE_STATE = None
+            if re.search(r"\b(cancel|stop|rehne\s*do|kuch\s*nahi|mat\s*karo|no|nahi|close|band|quit|exit|kill|ruko|chhod\s*do)\b", text):
+                return {
+                    "action": "interactive.cancelled",
+                    "reply": "Theek hai, cancel kar diya.",
+                    "voice": "Cancelled.",
+                }
             note_body = clean
             words = note_body.split()
             title = " ".join(words[:4]).title() if len(words) >= 4 else note_body.title()
@@ -595,12 +638,114 @@ async def try_dispatch_voice_action(message: str, context: dict[str, Any] | None
     return None
 
 
-async def _execute_single_voice_action(message: str) -> dict[str, Any] | None:
+async def _execute_single_voice_action(
+    message: str,
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     """Internal router for executing a single atomic voice command."""
     global PENDING_CONFIRMATION, INTERACTIVE_STATE
 
     adapter = get_computer_adapter()
     text = message.strip().lower()
+
+    # -------------------------------------------------------------------------
+    # 0. Close / Quit / Band Application (Highest Priority Action)
+    # Must precede Spotify, YouTube, WhatsApp, Notes, etc. to prevent closing intent
+    # from ever being treated as search queries or content drafts.
+    # -------------------------------------------------------------------------
+    is_closing_intent = bool(
+        re.search(
+            r"\b(close|quit|exit|kill|shut|band\s*(?:kro|karo|kar\s*do|kr\s*do|kr\s*doo|kijiye|ho\s*jao|karna)?|hata\s*(?:do|dijiye|kro|karo))\b",
+            text,
+        )
+    )
+
+    # Exclude media pause phrases where the user is referring to a song/video, unless an explicit app name is also mentioned
+    # e.g., "gana band karo" -> pause music; "spotify band karo" -> close Spotify app
+    is_media_pause_phrase = (
+        any(k in text for k in ("gana", "gaana", "song", "track", "audio"))
+        and not any(k in text for k in ("app", "application", "software", "window", "spotify", "chrome", "safari"))
+    )
+
+    if is_closing_intent and not is_media_pause_phrase:
+        target_app = None
+
+        # 1. Direct scan for known application aliases
+        for alias in sorted(APP_ALIASES.keys(), key=len, reverse=True):
+            if re.search(r"\b" + re.escape(alias) + r"\b", text):
+                target_app = APP_ALIASES[alias]
+                break
+
+        # 2. Check for generic close references: "app ko close kar do", "is app ko band karo", "window close karo", "close this", "close", "quit"
+        if not target_app:
+            generic_close = re.search(
+                r"\b(app|application|is\s*app|yeh\s*app|ye\s*app|this\s*app|current\s*app|active\s*app|window|is\s*window|this\s*window|ise|isko|this|it)\b",
+                text,
+            ) or re.search(r"^(?:close|quit|exit|band\s*(?:kro|karo|kar\s*do|kr\s*do|kr\s*doo|kijiye)|hata\s*do)$", text.strip())
+
+            if generic_close:
+                # First check if caller passed context with active app name
+                if context and context.get("app_name"):
+                    ctx_app = context.get("app_name", "").strip()
+                    if ctx_app and ctx_app not in ("NEXUS Ambient", "Nexus Ambient", "nexus-ambient", "Unknown"):
+                        target_app = normalize_app_name(ctx_app)
+
+                # Query OS frontmost application
+                if not target_app:
+                    frontmost = await adapter.get_frontmost_app()
+                    if frontmost and frontmost not in ("NEXUS Ambient", "Nexus Ambient", "nexus-ambient", "Window Server", "Dock"):
+                        target_app = normalize_app_name(frontmost)
+
+                # Query on-screen windows to find top non-nexus window
+                if not target_app:
+                    try:
+                        windows = await adapter.list_windows(on_screen_only=True)
+                        for w in windows:
+                            w_owner = w.get("owner_name", "")
+                            if w_owner and w_owner not in ("NEXUS Ambient", "Nexus Ambient", "nexus-ambient", "Window Server", "Dock", "Finder"):
+                                target_app = w_owner
+                                break
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug(f"Failed to inspect windows for close target: {exc}")
+
+                # Fallback if Spotify was recently launched in interactive state
+                if not target_app and INTERACTIVE_STATE and INTERACTIVE_STATE.get("type") == "awaiting_spotify_query":
+                    target_app = "Spotify"
+
+        # 3. Regex extractor for arbitrary application name (e.g. "close zoom", "vlc band karo")
+        if not target_app:
+            app_extract_match = re.search(
+                r"(?:close|quit|exit|band\s*(?:kro|karo|kar\s*do|kr\s*do|kr\s*doo|kijiye)?|kill|shut)\s+([a-zA-Z0-9\s]+?)(?:\s*(?:app|application|kro|karo|ko|kar\s*do|kr\s*do|kr\s*doo|kijiye))?$",
+                text,
+            ) or re.search(
+                r"^([a-zA-Z0-9\s]+?)\s*(?:ko)?\s*(?:close|quit|exit|band|hata\s*do)",
+                text,
+            )
+            if app_extract_match:
+                candidate = (app_extract_match.group(1) or "").strip()
+                candidate_clean = re.sub(r"\b(ko|app|application|is|yeh|ye|mera|mac|system|bhi|ya)\b", "", candidate).strip()
+                if candidate_clean and candidate_clean not in ("this", "it", "yeh", "ye", "kuch", "all", "the"):
+                    target_app = normalize_app_name(candidate_clean)
+
+        if target_app:
+            INTERACTIVE_STATE = None  # Immediately clear any awaiting state
+            logger.info("ambient_close_app_matched", app=target_app, raw_query=text)
+            try:
+                await adapter.close_application(target_app)
+                return {
+                    "action": "applications.close",
+                    "application": target_app,
+                    "reply": f"{target_app} close kar diya gaya hai.",
+                    "voice": f"Closed {target_app}.",
+                }
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Failed to close app '{target_app}': {e}")
+                return {
+                    "action": "applications.close",
+                    "application": target_app,
+                    "reply": f"{target_app} close karne ki koshish ki.",
+                    "voice": f"Attempted to close {target_app}.",
+                }
 
     # -------------------------------------------------------------------------
     # 1. WhatsApp Integration: Draft & Interactive Prompt
@@ -751,6 +896,18 @@ async def _execute_single_voice_action(message: str) -> dict[str, Any] | None:
         any(k in text for k in ("song", "gana", "gaana", "track"))
         and not any(k in text for k in ("youtube", "video", "vide"))
     ):
+        # Defense-in-depth: if closing intent is present, close Spotify immediately
+        if any(k in text for k in ("band", "close", "quit", "exit", "kill", "hata")):
+            INTERACTIVE_STATE = None
+            logger.info("ambient_spotify_close_fallback")
+            await adapter.close_application("Spotify")
+            return {
+                "action": "applications.close",
+                "application": "Spotify",
+                "reply": "Spotify close kar diya gaya hai.",
+                "voice": "Closed Spotify.",
+            }
+
         # Interactive check: "spotify kholo" / "open spotify" without query
         clean_sp_open = re.sub(r"\b(spotify|kholo|open|app|kro|karo|start|launch|music)\b", "", text).strip()
         if ("spotify" in text) and not clean_sp_open and not any(k in text for k in ("play", "chalao", "lagao", "next", "previous", "pause", "resume")):
@@ -896,6 +1053,18 @@ async def _execute_single_voice_action(message: str) -> dict[str, Any] | None:
     # 5. YouTube Tab Reuse & Interactive Prompt
     # -------------------------------------------------------------------------
     if "youtube" in text:
+        # Defense-in-depth: if closing intent is present, close YouTube immediately
+        if any(k in text for k in ("band", "close", "quit", "exit", "kill", "hata")):
+            INTERACTIVE_STATE = None
+            logger.info("ambient_youtube_close_fallback")
+            await adapter.close_application("YouTube")
+            return {
+                "action": "applications.close",
+                "application": "YouTube",
+                "reply": "YouTube close kar diya gaya hai.",
+                "voice": "Closed YouTube.",
+            }
+
         # Check if user just said "youtube kholo" / "open youtube" without a specific video
         clean_yt = re.sub(
             r"\b(youtube|kholo|open|kro|karo|app|chalao|start|launch)\b",
@@ -936,34 +1105,8 @@ async def _execute_single_voice_action(message: str) -> dict[str, Any] | None:
         }
 
     # -------------------------------------------------------------------------
-    # 6. Close Application
+    # 6. (Close Application is handled at Priority Section 0)
     # -------------------------------------------------------------------------
-    close_match = re.search(
-        r"(?:close|quit|band\s*(?:kro|karo|kar\s*do|kr\s*do)|exit)\s+([a-zA-Z0-9\s]+?)(?:\s*(?:app|application|kro|karo|ko|kar\s*do|kr\s*do))?$|^([a-zA-Z0-9\s]+?)\s+(?:close\s*(?:kro|karo)|band\s*(?:kro|karo|kar\s*do)|quit\s*(?:kro|karo))",
-        text,
-        re.IGNORECASE,
-    )
-    if close_match and not any(k in text for k in ("tab", "window", "video", "vide", "gana", "song")):
-        raw_app = (close_match.group(1) or close_match.group(2) or "").strip()
-        if raw_app and raw_app not in ("this", "it", "yeh", "kuch", "all"):
-            app_name = normalize_app_name(raw_app)
-            try:
-                logger.info("ambient_close_app", app=app_name)
-                await adapter.close_application(app_name)
-                return {
-                    "action": "applications.close",
-                    "application": app_name,
-                    "reply": f"{app_name} close kar diya gaya hai.",
-                    "voice": f"Closed {app_name}.",
-                }
-            except Exception as e:  # noqa: BLE001
-                logger.warning(f"Failed to close app '{app_name}': {e}")
-                return {
-                    "action": "applications.close",
-                    "application": app_name,
-                    "reply": f"{app_name} close karne ki koshish ki.",
-                    "voice": f"Attempted to close {app_name}.",
-                }
 
     # -------------------------------------------------------------------------
     # 7. Screen Scroll Control (Up, Down, Left, Right)

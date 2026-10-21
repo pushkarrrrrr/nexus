@@ -267,7 +267,78 @@ class MacOSAdapter(ComputerControlAdapter):
         if not app_clean or any(c in app_clean for c in ";|&$`\n\r><"):
             raise ValueError(f"Invalid application name: '{app_name}'")
 
+        # Resolve generic targets ("app", "current", "this", "window") to active frontmost application
+        if app_clean.lower() in ("app", "current", "this", "it", "window", "active", "is app", "yeh", "application"):
+            frontmost = await self.get_frontmost_app()
+            if frontmost and frontmost not in ("NEXUS Ambient", "Nexus Ambient", "nexus-ambient", "Window Server", "Dock"):
+                app_clean = frontmost
+            else:
+                # Find active app behind ambient window
+                try:
+                    windows = await self.list_windows(on_screen_only=True)
+                    for w in windows:
+                        w_owner = w.get("owner_name", "")
+                        if w_owner and w_owner not in ("NEXUS Ambient", "Nexus Ambient", "nexus-ambient", "Window Server", "Dock", "Finder"):
+                            app_clean = w_owner
+                            break
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug(f"Failed to inspect window owners for close target: {exc}")
+
         logger.info("macos_close_app", app=app_clean)
+
+        # Handle YouTube tab closing
+        if app_clean.lower() == "youtube":
+            yt_script = """
+            tell application "System Events"
+                set isChromeRunning to (count (every process whose bundle identifier is "com.google.Chrome")) > 0
+                set isBraveRunning to (count (every process whose bundle identifier is "com.brave.Browser")) > 0
+                set isSafariRunning to (count (every process whose bundle identifier is "com.apple.Safari")) > 0
+            end tell
+            if isChromeRunning then
+                try
+                    tell application "Google Chrome"
+                        repeat with w in windows
+                            repeat with t in (reverse of tabs of w)
+                                if URL of t contains "youtube.com" then close t
+                            end repeat
+                        end repeat
+                    end tell
+                end try
+            end if
+            if isBraveRunning then
+                try
+                    tell application "Brave Browser"
+                        repeat with w in windows
+                            repeat with t in (reverse of tabs of w)
+                                if URL of t contains "youtube.com" then close t
+                            end repeat
+                        end repeat
+                    end tell
+                end try
+            end if
+            if isSafariRunning then
+                try
+                    tell application "Safari"
+                        repeat with w in windows
+                            repeat with t in (reverse of tabs of w)
+                                if URL of t contains "youtube.com" then close t
+                            end repeat
+                        end repeat
+                    end tell
+                end try
+            end if
+            """
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript", "-e", yt_script,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await proc.communicate()
+            return {
+                "status": "success",
+                "application": "YouTube",
+                "message": "Successfully closed YouTube tabs",
+            }
 
         # 1. Graceful quit via osascript
         script = f'tell application "{app_clean}" to quit'

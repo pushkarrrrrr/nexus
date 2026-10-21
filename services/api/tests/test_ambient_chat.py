@@ -145,3 +145,63 @@ async def test_ambient_interactive_and_multi_task_flows():
         assert res_wa_confirm.status_code == 200
         assert any(w in res_wa_confirm.json()["reply"].lower() for w in ("message send kar diya", "send", "bhej diya"))
 
+
+@pytest.mark.asyncio
+async def test_ambient_spotify_close_and_quit_phrasings():
+    """Verify that all forms of closing Spotify execute close rather than searching Spotify."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        # 1. Hindi compound phrase: "spotify ko band ya close ya quit kr doo"
+        res1 = await client.post(
+            "/api/v1/ambient/chat",
+            json={"message": "spotify ko band ya close ya quit kr doo"},
+        )
+        assert res1.status_code == 200
+        reply1 = res1.json()["reply"].lower()
+        assert "spotify" in reply1
+        assert "close" in reply1
+        assert "play" not in reply1  # Never treat as song playback
+
+        # 2. "spotify band karo"
+        res2 = await client.post(
+            "/api/v1/ambient/chat",
+            json={"message": "spotify band karo"},
+        )
+        assert res2.status_code == 200
+        reply2 = res2.json()["reply"].lower()
+        assert "spotify" in reply2
+        assert "close" in reply2
+
+        # 3. Interactive flow: "spotify open kro" followed by "app ko close kar do"
+        res_open = await client.post(
+            "/api/v1/ambient/chat",
+            json={"message": "spotify open kro"},
+        )
+        assert res_open.status_code == 200
+
+        # Now say "app ko close kar do"
+        res_close = await client.post(
+            "/api/v1/ambient/chat",
+            json={"message": "app ko close kar do", "context": {"app_name": "Spotify"}},
+        )
+        assert res_close.status_code == 200
+        reply_close = res_close.json()["reply"].lower()
+        assert "spotify" in reply_close or "close" in reply_close
+        assert "play" not in reply_close  # Must NOT search 'app+ko+close+kar+do' as a song!
+
+        # 4. Interactive cancellation: "spotify kholo" followed by "rehne do"
+        res_open2 = await client.post(
+            "/api/v1/ambient/chat",
+            json={"message": "spotify kholo"},
+        )
+        assert res_open2.status_code == 200
+        res_cancel = await client.post(
+            "/api/v1/ambient/chat",
+            json={"message": "rehne do"},
+        )
+        assert res_cancel.status_code == 200
+        assert "cancel" in res_cancel.json()["reply"].lower()
+
+

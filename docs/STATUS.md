@@ -1,9 +1,16 @@
 # NEXUS Project Status & Phase Log
 
-### Current Status: Phase 16 + Tri-Pillar Intelligence Upgrade (COMPLETED)
+### Current Status: Production Native Release + Voice Action Pipeline Robustness (COMPLETED)
 
-Last Updated: 2026-10-21
-Total Passing Pytest Tests: **218 passed** across unit, integration, and intelligence suites.
+Last Updated: 2026-10-22
+Total Passing Pytest Tests: **219 passed** across unit, integration, intelligence, and ambient voice suites.
+
+- [x] **Voice Action Pipeline Fix (Spotify / App Closing & Interactive State Guard)**:
+  - Fixed issue where commands to close or quit Spotify (e.g., *"spotify ko band ya close ya quit kr doo"*, *"app ko close kar do"*) were intercepted by `INTERACTIVE_STATE` awaiting a song query and dispatched as search text.
+  - Placed Application Closing at Priority Section 0 in `voice_action_dispatcher.py` to precede any app-specific media handlers.
+  - Added robust detection for Hindi, English, and Hinglish close phrasing (`band karo`, `close`, `quit`, `exit`, `kill`, `hata do`, compound verbs).
+  - Enhanced generic close commands (*"app ko close kar do"*, *"is app ko band karo"*) to dynamically query the active frontmost application via `adapter.get_frontmost_app()`.
+  - Recompiled and updated standalone engine sidecar (`/Applications/NEXUS Ambient.app/Contents/MacOS/nexus-engine`).
 
 ---
 
