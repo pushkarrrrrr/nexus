@@ -177,11 +177,15 @@ Total Passing Pytest Tests: **218 passed** across unit, integration, and intelli
     - **macOS DMG Installer**: `apps/ambient/src-tauri/target/release/bundle/dmg/NEXUS Ambient_0.1.0_aarch64.dmg` (90.64 MiB, SHA256: `fbc0ab4e03a7b52c3dabcd38d4b8a6524b3c83f8b9de783d450a0ced7c10a660`).
   - Verified DMG structure via `hdiutil attach`: confirms presence of `NEXUS Ambient.app`, `/Applications` symlink, and `.VolumeIcon.icns` for seamless drag-and-drop macOS installation.
 
+- [x] **Phase 17.4 — Verification, Gatekeeper Documentation & User Installation Guide**:
+  - `docs/DISTRIBUTION.md`: Comprehensive user installation manual covering DMG drag-and-drop, Gatekeeper bypass (Option A: GUI Right-click Open; Option B: `xattr -cr`), macOS system permissions configuration (Accessibility, Screen Recording, Microphone), daily hotkeys (`Cmd+Shift+Space`), and clean tray exit.
+  - `docs/ARCHITECTURE.md`: Added Section 18 detailing the two-tier native application topology, PyInstaller sidecar bundling, dynamic data directories, and process supervisor lifecycle.
+
 ---
 
 ## 5. Next Steps / Future Scope
-- **Sub-Phase 17.4 — Distribution & Gatekeeper Documentation**: Create `docs/DISTRIBUTION.md` detailing user installation, permissions setup (Accessibility, Screen Recording, Microphone), and Gatekeeper bypass instructions.
 - **Multimodal Screen Vision**: Real-time visual computer control extending beyond accessibility trees to raw canvas applications.
 - **Hardware-Gated Approvals**: WebAuthn and Touch ID signing for CRITICAL-tier actions.
+- **Cross-Platform Bundles**: Windows (`.msi` / `.exe`) and Linux (`.deb` / `.AppImage`) packaging pipelines.
 
 

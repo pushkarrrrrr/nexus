@@ -634,3 +634,49 @@ Benchmark Dataset Cohort (N=25 Deterministic Tasks)
          ├── LaTeX Paper Modal with 1-click clipboard copy
          └── Direct CSV Dataset Download
 ```
+
+---
+
+## 18. Native Standalone macOS Packaging & Embedded Sidecar Architecture (Phase 17)
+
+To allow any user to run NEXUS on macOS without pre-installing Python, Node.js, or CLI tools, the system implements a **self-contained desktop packaging model**:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        NEXUS Ambient.app                               │
+│                                                                        │
+│  Contents/MacOS/                                                       │
+│  ├── nexus-ambient  (Tauri 2.0 Rust HUD Process, PID 1)                │
+│  │     │                                                               │
+│  │     ├── [EngineSupervisor]                                          │
+│  │     │     ├── Port 8000 Prober (re-uses existing if already active) │
+│  │     │     ├── Sidecar Spawner (launches nexus-engine)               │
+│  │     │     └── Lifecycle Manager (clean SIGTERM on app exit)         │
+│  │     │                                                               │
+│  │     ├── [Tray & Hotkey System]                                      │
+│  │     │     ├── Global shortcut: Cmd+Shift+Space                      │
+│  │     │     └── Menu bar tray with "Toggle HUD" & "Quit NEXUS"        │
+│  │     │                                                               │
+│  │     └── [WKWebView Transparent HUD Window]                          │
+│  │           └── Liquid-glass floating capsule (480x260)               │
+│  │                                                                     │
+│  └── nexus-engine   (Compiled Python Core Engine, PID 2)               │
+│        ├── Uvicorn Async Server on http://127.0.0.1:8000               │
+│        ├── Sub-15ms Fast-Path Intent Router & Gemini Semantic Fallback │
+│        ├── Active Screen Perception & OCR Context Synthesizer          │
+│        ├── Proactive Watchers & Self-Correction DAG Patcher            │
+│        └── SQLite Database (WAL Mode, Concurrency Busy Timeout 30s)    │
+│              └── Path: ~/Library/Application Support/NEXUS/nexus.db    │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Technical Decisions:
+1. **PyInstaller Mach-O Standalone Engine**:
+   - `scripts/build_engine_sidecar.sh` compiles `services/api/nexus_api/cli_engine.py` into a single 84MB binary with all dependencies (SQLAlchemy, aiosqlite, asyncpg, fastapi, uvicorn, pydantic, greenlet, cryptography).
+   - Resolves data directory to `~/Library/Application Support/NEXUS` automatically when `sys.frozen` is true.
+   - Detects standalone execution (`NEXUS_STANDALONE=1`) to immediately initialize SQLite WAL mode without PostgreSQL TCP timeout delay (141ms cold start).
+2. **Tauri 2.0 Process Supervision**:
+   - `apps/ambient/src-tauri/src/main.rs` manages the child process lifecycle in `Arc<Mutex<Option<Child>>>`.
+   - On app quit (via Tray menu or Cmd+Q), `RunEvent::ExitRequested` cleanly terminates the sidecar with `SIGTERM` so port 8000 is never leaked.
+3. **Automated DMG Distribution**:
+   - `scripts/build_macos_dmg.sh` produces `NEXUS Ambient_0.1.0_aarch64.dmg` (~90.64 MiB) containing `NEXUS Ambient.app` and an `/Applications` symlink for frictionless drag-and-drop installation.
