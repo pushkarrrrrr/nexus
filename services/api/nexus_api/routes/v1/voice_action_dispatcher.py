@@ -32,6 +32,8 @@ from typing import Any
 
 from packages.shared.nexus_shared.ai.gateway import get_model_gateway
 from packages.shared.nexus_shared.computer import get_computer_adapter
+from packages.shared.nexus_shared.intelligence.fast_path import get_fast_path_engine
+from packages.shared.nexus_shared.intelligence.screen_reasoner import get_screen_perception_reasoner
 from packages.shared.nexus_shared.logging import get_logger
 from packages.types.nexus_types.schemas import CompletionRequest
 
@@ -493,7 +495,34 @@ async def try_dispatch_voice_action(message: str, context: dict[str, Any] | None
             }
 
     # -------------------------------------------------------------------------
-    # 0.4 Fast Local Single Action Dispatch (Instant <15ms execution for all standard macOS commands)
+    # 0.4 High-Performance Fast-Path Intent Engine (Sub-15ms local deterministic matching)
+    # -------------------------------------------------------------------------
+    fast_match = get_fast_path_engine().match(clean)
+    if fast_match.matched:
+        if fast_match.action_type == "read_screen":
+            logger.info("ambient_fast_path_screen_reasoning", latency=fast_match.latency_ms)
+            reasoner = get_screen_perception_reasoner()
+            sres = await reasoner.answer_screen_query(clean, target_app=merged_context.get("app_name"))
+            return {
+                "action": "screen.perception",
+                "reply": sres["reply"],
+                "voice": sres["reply"],
+                "latency_ms": fast_match.latency_ms,
+            }
+        elif fast_match.action_type == "system_metrics":
+            logger.info("ambient_fast_path_system_metrics", latency=fast_match.latency_ms)
+            from packages.shared.nexus_shared.proactive.watcher import SystemWatcher
+            metrics = SystemWatcher().capture_metrics()
+            reply = f"System normal hai: CPU {metrics.cpu_percent}%, Memory {metrics.memory_percent}% used."
+            return {
+                "action": "system.metrics",
+                "reply": reply,
+                "voice": reply,
+                "latency_ms": fast_match.latency_ms,
+            }
+
+    # -------------------------------------------------------------------------
+    # 0.4.1 Fast Local Single Action Dispatch (Instant <15ms execution for all standard macOS commands)
     # -------------------------------------------------------------------------
     local_action = await _execute_single_voice_action(clean)
     if local_action:

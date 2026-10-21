@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from packages.shared.nexus_shared.ai.gateway import get_model_gateway
+from packages.shared.nexus_shared.intelligence.context_synthesizer import get_context_synthesizer
 from packages.shared.nexus_shared.logging import get_logger
 from packages.shared.nexus_shared.models import UserModel
 from packages.types.nexus_types.schemas import CompletionRequest
@@ -66,18 +67,22 @@ async def ambient_chat(
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"[ambient_chat] Voice action dispatch error: {exc}")
 
-    # 2. General conversational queries powered by Gemini
+    # 2. General conversational queries powered by Gemini with synthesized cross-memory context
     gateway = get_model_gateway()
-    augmented_prompt = user_prompt
+    session_key = str(current_user.id) if current_user else "default"
+    ctx = get_context_synthesizer().synthesize(session_key)
 
+    augmented_prompt = user_prompt
     if req.context and req.context.get("app_name"):
         context_hint = f" [Current frontmost app: {req.context.get('app_name')}]"
         augmented_prompt += context_hint
 
+    system_prompt_full = f"{AMBIENT_SYSTEM_PROMPT}\n{ctx.system_prompt_addon}".strip()
+
     try:
         completion_req = CompletionRequest(
             prompt=augmented_prompt,
-            system_prompt=AMBIENT_SYSTEM_PROMPT,
+            system_prompt=system_prompt_full,
             model="gemini-3.5-flash-lite",
             temperature=0.7,
             max_tokens=150,
@@ -92,6 +97,13 @@ async def ambient_chat(
         clean_reply = response.content.strip().replace("*", "").replace("#", "")
         final_reply = clean_reply or "I'm here! How can I help you?"
         set_last_assistant_reply(final_reply)
+
+        # Update synthesized memory profile
+        get_context_synthesizer().update_session_event(
+            session_id=session_key,
+            goal=user_prompt[:80],
+        )
+
         return AmbientChatResponse(
             reply=final_reply,
             model=response.model,
