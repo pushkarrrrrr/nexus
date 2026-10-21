@@ -53,4 +53,8 @@ check_untyped_defs = true
 asyncio_mode = "auto"
 testpaths = ["tests", "services/api/tests"]
 pythonpath = ["."]
+filterwarnings = [
+    "ignore::pytest.PytestUnhandledThreadExceptionWarning",
+    "ignore::DeprecationWarning",
+]
 

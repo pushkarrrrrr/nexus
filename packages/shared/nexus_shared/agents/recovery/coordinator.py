@@ -117,11 +117,7 @@ class SelfCorrectionCoordinator:
         if exceeded_budget or proposal.requires_hitl:
             # Escalate to Human-in-the-Loop
             replan_status = "escalated_hitl"
-            strategy_val = (
-                proposal.strategy.value
-                if hasattr(proposal.strategy, "value")
-                else str(proposal.strategy)
-            )
+            strategy_val = getattr(proposal.strategy, "value", str(proposal.strategy))
             approval = ApprovalRequestModel(
                 user_id=plan.user_id,
                 task_id=plan.task_id,

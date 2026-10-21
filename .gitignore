@@ -20,6 +20,7 @@ build/
 .next/
 out/
 target/
+*.tsbuildinfo
 
 # Environment & Secrets (NEVER COMMIT SECRETS)
 .env

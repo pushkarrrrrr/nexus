@@ -141,7 +141,7 @@ export default function TasksPage() {
         setSelectedNode(undefined);
       }
     }
-  }, [selectedDAG?.dag_id, token, loadTimeline, loadPlan]);
+  }, [selectedDAG?.dag_id, selectedDAG?.nodes, token, loadTimeline, loadPlan]);
 
   // WebSocket Live Updates Connection
   useEffect(() => {

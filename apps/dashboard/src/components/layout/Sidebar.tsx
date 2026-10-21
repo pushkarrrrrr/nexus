@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import NextLink from "next/link";
+import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -95,9 +96,11 @@ export function Sidebar() {
       <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
         <NextLink href="/" className="flex items-center gap-2.5 overflow-hidden group">
           <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 shadow-lg shadow-cyan-500/25 ring-1 ring-cyan-400/40 group-hover:scale-105 transition-transform duration-200">
-            <img
+            <NextImage
               src="/icon.png"
               alt="NEXUS Logo"
+              width={32}
+              height={32}
               className="w-full h-full object-cover"
             />
           </div>

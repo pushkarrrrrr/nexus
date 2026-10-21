@@ -336,7 +336,7 @@ async def execute_action_plan(actions: list[dict[str, Any]], reply_text: str) ->
             elif atype == "list_windows":
                 logger.info("gemini_exec_list_windows")
                 win_list = await adapter.list_windows(on_screen_only=True)
-                results.append(win_list)
+                results.append({"status": "success", "windows": win_list})
                 if win_list:
                     names = list(dict.fromkeys(
                         w["owner_name"] for w in win_list

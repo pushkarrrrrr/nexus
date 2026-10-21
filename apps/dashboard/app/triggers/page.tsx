@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -47,7 +47,7 @@ export default function TriggersPage() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const headers = getHeaders();
 
@@ -124,13 +124,13 @@ export default function TriggersPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 8000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchData]);
 
   const handleToggle = async (triggerId: string) => {
     try {
@@ -361,7 +361,7 @@ export default function TriggersPage() {
 
         {triggers.length === 0 ? (
           <div className="text-center py-12 text-slate-500 font-mono text-xs">
-            No proactive triggers configured. Click "New Trigger" to add system health guards.
+            No proactive triggers configured. Click &quot;New Trigger&quot; to add system health guards.
           </div>
         ) : (
           <div className="overflow-x-auto">

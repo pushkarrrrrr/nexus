@@ -4,6 +4,7 @@ import asyncio
 import os
 import re
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -394,7 +395,7 @@ class MacOSAdapter(ComputerControlAdapter):
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=1.8)
             status_res = stdout.decode().strip()
-        except (TimeoutError, asyncio.SubprocessError, OSError, RuntimeError):
+        except (TimeoutError, subprocess.SubprocessError, OSError, RuntimeError):
             status_res = "not_found"
 
         if status_res != "not_found" and status_res.startswith("reused"):
@@ -655,7 +656,7 @@ class MacOSAdapter(ComputerControlAdapter):
             stdout, _ = await proc.communicate()
             if proc.returncode == 0:
                 return stdout.decode().strip()
-        except (asyncio.SubprocessError, OSError, RuntimeError) as exc:
+        except (subprocess.SubprocessError, OSError, RuntimeError) as exc:
             logger.warning(f"Failed to get frontmost app: {exc}")
         return ""
 
