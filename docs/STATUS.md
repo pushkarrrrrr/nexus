@@ -170,11 +170,17 @@ Total Passing Pytest Tests: **218 passed** across unit, integration, and intelli
     - Handled clean exit in `RunEvent::ExitRequested` and `RunEvent::Exit` ensuring backend engine is terminated with SIGTERM/kill and no zombie processes remain.
     - Added `check_engine_status` Tauri IPC command for frontend readiness checks.
 
+- [x] **Phase 17.3 — Production macOS Packaging (.app & .dmg)**:
+  - `scripts/build_macos_dmg.sh`: Automated production packaging pipeline compiling React/Vite frontend and executing Tauri 2.0 release bundler.
+  - Generated Bundles:
+    - **macOS App Bundle**: `apps/ambient/src-tauri/target/release/bundle/macos/NEXUS Ambient.app` (96.24 MiB) containing both native Mach-O `nexus-ambient` (Rust GUI) and `nexus-engine` (compiled Python core engine).
+    - **macOS DMG Installer**: `apps/ambient/src-tauri/target/release/bundle/dmg/NEXUS Ambient_0.1.0_aarch64.dmg` (90.64 MiB, SHA256: `fbc0ab4e03a7b52c3dabcd38d4b8a6524b3c83f8b9de783d450a0ced7c10a660`).
+  - Verified DMG structure via `hdiutil attach`: confirms presence of `NEXUS Ambient.app`, `/Applications` symlink, and `.VolumeIcon.icns` for seamless drag-and-drop macOS installation.
+
 ---
 
 ## 5. Next Steps / Future Scope
-- **Sub-Phase 17.3 — Production macOS Packaging**: Generate `.app` bundle and standalone `.dmg` installer using `tauri build`.
-- **Sub-Phase 17.4 — Distribution & Gatekeeper Documentation**: Create `docs/DISTRIBUTION.md`.
+- **Sub-Phase 17.4 — Distribution & Gatekeeper Documentation**: Create `docs/DISTRIBUTION.md` detailing user installation, permissions setup (Accessibility, Screen Recording, Microphone), and Gatekeeper bypass instructions.
 - **Multimodal Screen Vision**: Real-time visual computer control extending beyond accessibility trees to raw canvas applications.
 - **Hardware-Gated Approvals**: WebAuthn and Touch ID signing for CRITICAL-tier actions.
 
