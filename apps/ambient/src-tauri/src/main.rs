@@ -229,9 +229,143 @@ fn speak_text(text: String, voice: Option<String>) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+async fn check_engine_status() -> Result<bool, String> {
+    Ok(tokio::net::TcpStream::connect("127.0.0.1:8000").await.is_ok())
+}
+
+use std::path::PathBuf;
+use std::process::{Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tokio::net::TcpStream;
+
+/// Structure to locate and supervise the embedded backend engine sidecar.
+pub struct EngineSupervisor {
+    child: Arc<Mutex<Option<Child>>>,
+}
+
+impl EngineSupervisor {
+    pub fn new() -> Self {
+        Self {
+            child: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn terminate(&self) {
+        if let Ok(mut lock) = self.child.lock() {
+            if let Some(mut child) = lock.take() {
+                eprintln!("[NEXUS Supervisor] Terminating backend engine sidecar (PID: {})...", child.id());
+                let _ = child.kill();
+                let _ = child.wait();
+                eprintln!("[NEXUS Supervisor] Backend engine terminated cleanly.");
+            }
+        }
+    }
+
+    pub async fn ensure_running(&self, binary_path: PathBuf) {
+        // 1. Check if port 8000 is already active
+        if TcpStream::connect("127.0.0.1:8000").await.is_ok() {
+            eprintln!("[NEXUS Supervisor] Backend engine is already active on port 8000. Reusing existing instance.");
+            return;
+        }
+
+        eprintln!("[NEXUS Supervisor] Spawning backend engine sidecar: {:?}", binary_path);
+        let mut cmd = Command::new(&binary_path);
+        cmd.arg("--port").arg("8000");
+        cmd.arg("--host").arg("127.0.0.1");
+
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(home) = std::env::var_os("HOME") {
+                let data_dir = PathBuf::from(home)
+                    .join("Library")
+                    .join("Application Support")
+                    .join("NEXUS");
+                let _ = std::fs::create_dir_all(&data_dir);
+                cmd.arg("--data-dir").arg(data_dir);
+            }
+        }
+
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
+
+        match cmd.spawn() {
+            Ok(child_proc) => {
+                let pid = child_proc.id();
+                eprintln!("[NEXUS Supervisor] Backend engine spawned with PID: {}", pid);
+                if let Ok(mut lock) = self.child.lock() {
+                    *lock = Some(child_proc);
+                }
+
+                // Poll port 8000 for up to 5 seconds
+                for i in 0..50 {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    if TcpStream::connect("127.0.0.1:8000").await.is_ok() {
+                        eprintln!("[NEXUS Supervisor] Backend engine verified healthy after {}ms!", (i + 1) * 100);
+                        break;
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("[NEXUS Supervisor] ERROR: Failed to spawn backend engine sidecar: {e}");
+            }
+        }
+    }
+}
+
+/// Locates the nexus-engine sidecar binary across packaged app bundle, resources, and dev directories.
+fn find_engine_binary(app_handle: &tauri::AppHandle) -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    // 1. Packaged macOS bundle locations (Contents/MacOS or Contents/Resources)
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join("nexus-engine"));
+            candidates.push(exe_dir.join("nexus-engine-aarch64-apple-darwin"));
+            if let Some(bundle_dir) = exe_dir.parent() {
+                let res_dir = bundle_dir.join("Resources");
+                candidates.push(res_dir.join("nexus-engine"));
+                candidates.push(res_dir.join("nexus-engine-aarch64-apple-darwin"));
+                candidates.push(res_dir.join("binaries").join("nexus-engine-aarch64-apple-darwin"));
+            }
+        }
+    }
+
+    // 2. Tauri path resolver resource dir
+    if let Ok(res_dir) = app_handle.path().resource_dir() {
+        candidates.push(res_dir.join("nexus-engine"));
+        candidates.push(res_dir.join("nexus-engine-aarch64-apple-darwin"));
+        candidates.push(res_dir.join("binaries").join("nexus-engine-aarch64-apple-darwin"));
+    }
+
+    // 3. Development workspace paths
+    candidates.push(PathBuf::from("binaries/nexus-engine-aarch64-apple-darwin"));
+    candidates.push(PathBuf::from("src-tauri/binaries/nexus-engine-aarch64-apple-darwin"));
+    candidates.push(PathBuf::from("apps/ambient/src-tauri/binaries/nexus-engine-aarch64-apple-darwin"));
+
+    if let Ok(curr_dir) = std::env::current_dir() {
+        candidates.push(curr_dir.join("binaries").join("nexus-engine-aarch64-apple-darwin"));
+        candidates.push(curr_dir.join("apps/ambient/src-tauri/binaries/nexus-engine-aarch64-apple-darwin"));
+        if let Some(parent) = curr_dir.parent() {
+            candidates.push(parent.join("apps/ambient/src-tauri/binaries/nexus-engine-aarch64-apple-darwin"));
+        }
+    }
+
+    for path in candidates {
+        if path.is_file() {
+            return Some(path.canonicalize().unwrap_or(path));
+        }
+    }
+
+    None
+}
 
 fn main() {
+    let supervisor = Arc::new(EngineSupervisor::new());
+    let supervisor_setup = supervisor.clone();
+    let supervisor_exit = supervisor.clone();
+
     tauri::Builder::default()
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -251,10 +385,18 @@ fn main() {
             show_hud,
             toggle_hud,
             speak_text,
+            check_engine_status,
         ])
-        .setup(|app| {
+        .setup(move |app| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = position_orb(&window);
+                let win_clone = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = win_clone.hide();
+                    }
+                });
             }
 
             // Register global hotkeys: Cmd+Shift+Space and Cmd+Shift+P
@@ -267,16 +409,48 @@ fn main() {
                 eprintln!("[NEXUS Ambient] Warning: Failed to register Cmd+Shift+P shortcut: {err}");
             }
 
+            // Supervise backend engine lifecycle
+            if let Some(bin) = find_engine_binary(app.handle()) {
+                let sup = supervisor_setup.clone();
+                tokio::spawn(async move {
+                    sup.ensure_running(bin).await;
+                });
+            } else {
+                eprintln!("[NEXUS Ambient] Notice: Sidecar binary not found at default paths. Assuming standalone server on 127.0.0.1:8000.");
+            }
+
             // Status bar tray icon for convenient click-to-summon in macOS menu bar
             let mut tray_builder = tauri::tray::TrayIconBuilder::new()
-                .tooltip("NEXUS Ambient HUD (Click to Toggle)")
+                .tooltip("NEXUS Ambient HUD")
                 .title(" ✦ NEXUS ");
 
             if let Some(icon) = app.default_window_icon() {
                 tray_builder = tray_builder.icon(icon.clone());
             }
 
+            // Build tray context menu with Quit option
+            use tauri::menu::{Menu, MenuItem};
+            let show_item = MenuItem::with_id(app, "toggle_hud", "Toggle HUD (Cmd+Shift+Space)", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit NEXUS", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            let supervisor_tray = supervisor_setup.clone();
             let _ = tray_builder
+                .menu(&tray_menu)
+                .on_menu_event(move |app_handle, event| {
+                    match event.id.as_ref() {
+                        "quit" => {
+                            supervisor_tray.terminate();
+                            app_handle.exit(0);
+                        }
+                        "toggle_hud" => {
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                let _ = toggle_hud(window);
+                            }
+                        }
+                        _ => {}
+                    }
+                })
                 .on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::Click {
                         button: tauri::tray::MouseButton::Left,
@@ -296,9 +470,15 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("error while running NEXUS ambient application")
-        .run(|_app_handle, event| {
-            if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                api.prevent_exit();
+        .run(move |_app_handle, event| {
+            match event {
+                tauri::RunEvent::ExitRequested { .. } => {
+                    supervisor_exit.terminate();
+                }
+                tauri::RunEvent::Exit => {
+                    supervisor_exit.terminate();
+                }
+                _ => {}
             }
         });
 }

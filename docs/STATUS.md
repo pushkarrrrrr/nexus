@@ -160,11 +160,20 @@ Total Passing Pytest Tests: **218 passed** across unit, integration, and intelli
   - `scripts/build_engine_sidecar.sh`: PyInstaller standalone compilation script producing `apps/ambient/src-tauri/binaries/nexus-engine-aarch64-apple-darwin` (Apple Silicon Mach-O 64-bit binary).
   - Standalone verification confirmed: verified HTTP 200 `/health` and auto-creation of all 24 schema tables in SQLite WAL mode.
 
+- [x] **Phase 17.2 — Tauri 2.0 Process Supervision & Lifecycle Management**:
+  - `apps/ambient/src-tauri/tauri.conf.json`: Added `externalBin: ["binaries/nexus-engine"]` for automatic sidecar bundling.
+  - `apps/ambient/src-tauri/src/main.rs`:
+    - Implemented `EngineSupervisor` managing child process handle in thread-safe `Arc<Mutex<Option<Child>>>`.
+    - Added `find_engine_binary` resolving the bundled sidecar across packaged app bundle (`Contents/MacOS`, `Contents/Resources`), resource directory, and development workspaces.
+    - Added automatic port check: if port 8000 is already active, reuses instance without spawning duplicates; otherwise spawns sidecar and polls health until verified ready.
+    - Added tray context menu with "Quit NEXUS" and "Toggle HUD" items.
+    - Handled clean exit in `RunEvent::ExitRequested` and `RunEvent::Exit` ensuring backend engine is terminated with SIGTERM/kill and no zombie processes remain.
+    - Added `check_engine_status` Tauri IPC command for frontend readiness checks.
+
 ---
 
 ## 5. Next Steps / Future Scope
-- **Sub-Phase 17.2 — Tauri 2.0 Process Supervision**: Embed and supervise the sidecar lifecycle inside `apps/ambient/src-tauri/src/main.rs`.
-- **Sub-Phase 17.3 — Production macOS Packaging**: Generate `.app` bundle and standalone `.dmg` installer.
+- **Sub-Phase 17.3 — Production macOS Packaging**: Generate `.app` bundle and standalone `.dmg` installer using `tauri build`.
 - **Sub-Phase 17.4 — Distribution & Gatekeeper Documentation**: Create `docs/DISTRIBUTION.md`.
 - **Multimodal Screen Vision**: Real-time visual computer control extending beyond accessibility trees to raw canvas applications.
 - **Hardware-Gated Approvals**: WebAuthn and Touch ID signing for CRITICAL-tier actions.
