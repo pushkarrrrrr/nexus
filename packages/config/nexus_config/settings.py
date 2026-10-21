@@ -1,5 +1,28 @@
+import os
+import sys
+from pathlib import Path
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def get_default_data_dir() -> Path:
+    if "NEXUS_DATA_DIR" in os.environ:
+        return Path(os.environ["NEXUS_DATA_DIR"]).expanduser()
+    if getattr(sys, "frozen", False):
+        if sys.platform == "darwin":
+            return Path.home() / "Library" / "Application Support" / "NEXUS"
+        elif sys.platform == "win32":
+            return Path(os.environ.get("APPDATA", "~")) / "NEXUS"
+        else:
+            return Path.home() / ".local" / "share" / "nexus"
+    return Path(".nexus")
+
+
+def get_default_sqlite_url() -> str:
+    data_dir = get_default_data_dir()
+    db_file = data_dir / "nexus.db"
+    return f"sqlite+aiosqlite:///{db_file.as_posix()}"
 
 
 class NexusSettings(BaseSettings):
@@ -35,7 +58,7 @@ class NexusSettings(BaseSettings):
         alias="DATABASE_URL",
     )
     sqlite_fallback_url: str = Field(
-        default="sqlite+aiosqlite:///./.nexus/nexus.db",
+        default_factory=get_default_sqlite_url,
         alias="SQLITE_FALLBACK_URL",
     )
     database_echo: bool = Field(default=False, alias="DATABASE_ECHO")
@@ -67,6 +90,14 @@ class NexusSettings(BaseSettings):
         alias="NEXUS_DEMO_MODE",
         description="When True in non-production environments, allows demo session fallback without credentials for live presentation walkthroughs.",
     )
+
+    @field_validator("sqlite_fallback_url", mode="before")
+    @classmethod
+    def resolve_sqlite_fallback_url(cls, v):
+        if os.environ.get("NEXUS_DATA_DIR"):
+            data_dir = Path(os.environ["NEXUS_DATA_DIR"]).expanduser()
+            return f"sqlite+aiosqlite:///{(data_dir / 'nexus.db').as_posix()}"
+        return v or get_default_sqlite_url()
 
     @field_validator("cors_origins", mode="before")
     @classmethod

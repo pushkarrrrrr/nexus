@@ -36,11 +36,27 @@ def configure_sqlite_connection(engine: AsyncEngine) -> None:
             cursor.close()
 
 
+def ensure_sqlite_directory(url: str) -> None:
+    if "sqlite" in url:
+        # Extract file path from sqlite+aiosqlite:///path or sqlite:///path
+        for prefix in ("sqlite+aiosqlite:///", "sqlite:///"):
+            if prefix in url:
+                path_part = url.split(prefix, 1)[1]
+                if path_part and path_part != ":memory:":
+                    os.makedirs(os.path.dirname(os.path.abspath(path_part)), exist_ok=True)
+                break
+
+
 async def init_database() -> AsyncEngine:
     global _engine, _session_factory
     settings = get_settings()
 
     target_url = os.environ.get("DATABASE_URL", settings.database_url)
+
+    import sys
+    is_standalone = os.environ.get("NEXUS_STANDALONE", "0") == "1" or getattr(sys, "frozen", False)
+    if is_standalone and "sqlite" not in target_url:
+        target_url = settings.sqlite_fallback_url
 
     # If postgres target, test connection; fallback to SQLite if unreachable
     if "postgres" in target_url:
@@ -63,21 +79,29 @@ async def init_database() -> AsyncEngine:
                 error=str(e),
                 fallback=settings.sqlite_fallback_url,
             )
-            os.makedirs(".nexus", exist_ok=True)
+            ensure_sqlite_directory(settings.sqlite_fallback_url)
             _engine = create_async_engine(
                 settings.sqlite_fallback_url,
                 echo=settings.database_echo,
             )
             configure_sqlite_connection(_engine)
+            async with _engine.begin() as conn:
+                from packages.shared.nexus_shared.models import Base
+                await conn.run_sync(Base.metadata.create_all)
     else:
-        os.makedirs(".nexus", exist_ok=True)
+        chosen_url = target_url or settings.sqlite_fallback_url
+        if "sqlite" in chosen_url:
+            ensure_sqlite_directory(chosen_url)
         _engine = create_async_engine(
-            target_url or settings.sqlite_fallback_url,
+            chosen_url,
             echo=settings.database_echo,
         )
-        if "sqlite" in (target_url or settings.sqlite_fallback_url):
+        if "sqlite" in chosen_url:
             configure_sqlite_connection(_engine)
-        logger.info("connected_to_sqlite", url=settings.sqlite_fallback_url)
+            async with _engine.begin() as conn:
+                from packages.shared.nexus_shared.models import Base
+                await conn.run_sync(Base.metadata.create_all)
+        logger.info("connected_to_sqlite", url=chosen_url)
 
     _session_factory = async_sessionmaker(
         bind=_engine,

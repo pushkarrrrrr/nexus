@@ -153,11 +153,20 @@ Total Passing Pytest Tests: **218 passed** across unit, integration, and intelli
 - [x] **Phase 1 — Monorepo Foundation**
 - [x] **Phase 0 — Project Constitution**
 
+- [x] **Phase 17.1 — Native macOS Standalone Engine Sidecar Compilation**:
+  - `packages/config/nexus_config/settings.py`: Dynamic macOS user data directory resolution (`~/Library/Application Support/NEXUS/nexus.db`).
+  - `services/api/nexus_api/database.py`: Standalone mode detection (`NEXUS_STANDALONE=1` or `sys.frozen`) with immediate SQLite connection and automatic schema table creation (`Base.metadata.create_all`). Cold start database initialization in ~140ms.
+  - `services/api/nexus_api/cli_engine.py`: Standalone CLI engine entrypoint supporting `--port`, `--host`, `--data-dir`, `--version`, and graceful POSIX signal termination (`SIGTERM`, `SIGINT`).
+  - `scripts/build_engine_sidecar.sh`: PyInstaller standalone compilation script producing `apps/ambient/src-tauri/binaries/nexus-engine-aarch64-apple-darwin` (Apple Silicon Mach-O 64-bit binary).
+  - Standalone verification confirmed: verified HTTP 200 `/health` and auto-creation of all 24 schema tables in SQLite WAL mode.
+
 ---
 
 ## 5. Next Steps / Future Scope
-- **Multimodal Screen Vision**: Real-time visual computer control extending beyond accessibility trees to raw canvas applications and legacy desktop GUIs.
+- **Sub-Phase 17.2 — Tauri 2.0 Process Supervision**: Embed and supervise the sidecar lifecycle inside `apps/ambient/src-tauri/src/main.rs`.
+- **Sub-Phase 17.3 — Production macOS Packaging**: Generate `.app` bundle and standalone `.dmg` installer.
+- **Sub-Phase 17.4 — Distribution & Gatekeeper Documentation**: Create `docs/DISTRIBUTION.md`.
+- **Multimodal Screen Vision**: Real-time visual computer control extending beyond accessibility trees to raw canvas applications.
 - **Hardware-Gated Approvals**: WebAuthn and Touch ID signing for CRITICAL-tier actions.
-- **Cross-Platform Adapters**: Full Linux (D-Bus/Wayland) and Windows (UI Automation) desktop parity.
 
 

@@ -21,6 +21,8 @@ build/
 out/
 target/
 *.tsbuildinfo
+*.spec
+apps/ambient/src-tauri/binaries/
 
 # Environment & Secrets (NEVER COMMIT SECRETS)
 .env
